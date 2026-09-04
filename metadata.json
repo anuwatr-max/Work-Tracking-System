@@ -1,0 +1,6 @@
+{
+  "name": "ระบบติดตามงาน (Work Tracking System)",
+  "description": "ระบบติดตามงานและรายงานผลการดำเนินงาน ประจำปีงบประมาณ ตุลาคม 2569 - กันยายน 2570 พร้อม Dashboard สรุปผลภาพรวม",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

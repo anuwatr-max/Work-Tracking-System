@@ -121,11 +121,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // Status breakdown data for PieChart
   const pieChartData = useMemo(() => {
     return [
-      { name: 'เสร็จสิ้น', value: stats.completed, color: '#10b981' },
-      { name: 'กำลังดำเนินการ', value: stats.inProgress, color: '#3b82f6' },
-      { name: 'รอตรวจ/อนุมัติ', value: stats.pending, color: '#f59e0b' },
-      { name: 'ล่าช้ากว่ากำหนด', value: stats.delayed, color: '#f43f5e' },
-      { name: 'ยังไม่เริ่ม', value: stats.notStarted, color: '#94a3b8' },
+      { name: 'เสร็จสิ้น', value: stats.completed, color: STATUS_CONFIG.completed.color },
+      { name: 'กำลังดำเนินการ', value: stats.inProgress, color: STATUS_CONFIG.in_progress.color },
+      { name: 'รอตรวจ/อนุมัติ', value: stats.pending, color: STATUS_CONFIG.pending_review.color },
+      { name: 'ล่าช้ากว่ากำหนด', value: stats.delayed, color: STATUS_CONFIG.delayed.color },
+      { name: 'ยังไม่เริ่ม', value: stats.notStarted, color: STATUS_CONFIG.not_started.color },
     ].filter((item) => item.value > 0);
   }, [stats]);
 
@@ -159,8 +159,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
       <div className="bg-[#1e293b] rounded-xl border border-slate-700 p-4 sm:p-5 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
-            <h2 className="text-base sm:text-lg font-bold text-white">
+            <span className="w-2.5 h-2.5 rounded-full bg-sky-500 animate-pulse"></span>
+            <h2 className="text-base sm:text-lg font-bold text-slate-100">
               ภาพรวมผลการดำเนินงาน ประจำปีงบประมาณ 2570
             </h2>
           </div>
@@ -171,7 +171,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-            <Filter className="w-3.5 h-3.5 text-amber-500" />
+            <Filter className="w-3.5 h-3.5 text-sky-400" />
             <span>กรองตามงวด:</span>
           </div>
 
@@ -182,7 +182,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               setSelectedQuarter(e.target.value);
               setSelectedMonth('all');
             }}
-            className="text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg px-2.5 py-1.5 font-medium text-slate-200 hover:bg-slate-700/80 focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+            className="text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg px-2.5 py-1.5 font-medium text-slate-200 hover:bg-slate-700/80 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
           >
             <option value="all">ทุกไตรมาส (ทั้งปี 2570)</option>
             <option value="1">ไตรมาสที่ 1 (ต.ค. - ธ.ค. 69)</option>
@@ -200,7 +200,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 setSelectedQuarter('all');
               }
             }}
-            className="text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg px-2.5 py-1.5 font-medium text-slate-200 hover:bg-slate-700/80 focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+            className="text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg px-2.5 py-1.5 font-medium text-slate-200 hover:bg-slate-700/80 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
           >
             <option value="all">ทุกเดือน (ต.ค. 69 - ก.ย. 70)</option>
             {FISCAL_MONTHS.map((m) => (
@@ -213,7 +213,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {selectedMonth !== 'all' && (
             <button
               onClick={() => onViewMonthlyReport(selectedMonth)}
-              className="text-xs text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1 border border-amber-500/20"
+              className="text-xs text-sky-400 hover:text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 px-2.5 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1 border border-sky-500/20"
             >
               <span>ดูสรุปประจำเดือนนี้</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
@@ -233,7 +233,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </div>
           <div className="mt-2">
-            <div className="text-2xl sm:text-3xl font-bold text-white">{stats.total}</div>
+            <div className="text-2xl sm:text-3xl font-bold text-slate-100">{stats.total}</div>
             <div className="text-xs text-slate-400 mt-1">
               ครอบคลุม 14 หน่วยงาน
             </div>
@@ -243,21 +243,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* Completed */}
         <div className="bg-[#1e293b] rounded-xl border border-slate-700 p-4 sm:p-5 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-emerald-400">ดำเนินการแล้วเสร็จ</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+            <span className="text-xs font-semibold text-[#3eb489]">ดำเนินการแล้วเสร็จ</span>
+            <div className="w-8 h-8 rounded-lg bg-emerald-950/30 text-[#3eb489] flex items-center justify-center border border-emerald-700/25">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-2">
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-bold text-emerald-400">{stats.completed}</span>
-              <span className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span className="text-2xl sm:text-3xl font-bold text-[#3eb489]">{stats.completed}</span>
+              <span className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-emerald-950/40 text-emerald-300 border border-emerald-700/25">
                 {stats.completionRate}%
               </span>
             </div>
             <div className="w-full bg-slate-700 rounded-full h-1.5 mt-2 overflow-hidden">
               <div 
-                className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" 
+                className="bg-[#2e9369] h-1.5 rounded-full transition-all duration-500" 
                 style={{ width: `${stats.completionRate}%` }}
               ></div>
             </div>
@@ -267,14 +267,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* In Progress */}
         <div className="bg-[#1e293b] rounded-xl border border-slate-700 p-4 sm:p-5 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-blue-400">กำลังดำเนินการ</span>
-            <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20">
+            <span className="text-xs font-semibold text-[#9bbad2]">กำลังดำเนินการ</span>
+            <div className="w-8 h-8 rounded-lg bg-slate-800 text-[#9bbad2] flex items-center justify-center border border-slate-600/40">
               <PlayCircle className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-2">
-            <div className="text-2xl sm:text-3xl font-bold text-blue-400">{stats.inProgress}</div>
-            <div className="text-xs text-blue-300/80 mt-1 font-medium">
+            <div className="text-2xl sm:text-3xl font-bold text-[#9bbad2]">{stats.inProgress}</div>
+            <div className="text-xs text-[#9bbad2]/80 mt-1 font-medium">
               คิดเป็น {stats.total > 0 ? Math.round((stats.inProgress / stats.total) * 100) : 0}% ของงาน
             </div>
           </div>
@@ -283,14 +283,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* Pending Review */}
         <div className="bg-[#1e293b] rounded-xl border border-slate-700 p-4 sm:p-5 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-amber-400">รอตรวจ/รออนุมัติ</span>
-            <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
+            <span className="text-xs font-semibold text-[#dfbe73]">รอตรวจ/รออนุมัติ</span>
+            <div className="w-8 h-8 rounded-lg bg-[#3f3114]/35 text-[#dfbe73] flex items-center justify-center border border-[#9c7d37]/30">
               <Clock className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-2">
-            <div className="text-2xl sm:text-3xl font-bold text-amber-400">{stats.pending}</div>
-            <div className="text-xs text-amber-300/80 mt-1">
+            <div className="text-2xl sm:text-3xl font-bold text-[#dfbe73]">{stats.pending}</div>
+            <div className="text-xs text-[#dfbe73]/80 mt-1">
               อยู่ระหว่างประเมินผล
             </div>
           </div>
@@ -298,24 +298,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Delayed */}
         <div className={`rounded-xl border p-4 sm:p-5 shadow-sm flex flex-col justify-between col-span-2 sm:col-span-2 lg:col-span-1 ${
-          stats.delayed > 0 ? 'bg-rose-950/20 border-rose-500/40' : 'bg-[#1e293b] border-slate-700'
+          stats.delayed > 0 ? 'bg-[#3b1915]/20 border-rose-500/20' : 'bg-[#1e293b] border-slate-700'
         }`}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-rose-400">ล่าช้ากว่ากำหนด</span>
-            <div className="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center border border-rose-500/20">
+            <span className="text-xs font-semibold text-[#e57373]">ล่าช้ากว่ากำหนด</span>
+            <div className="w-8 h-8 rounded-lg bg-[#451b16]/30 text-[#e57373] flex items-center justify-center border border-rose-500/20">
               <AlertTriangle className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-2">
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-bold text-rose-400">{stats.delayed}</span>
+              <span className="text-2xl sm:text-3xl font-bold text-[#e57373]">{stats.delayed}</span>
               {stats.delayed > 0 && (
-                <span className="text-xs font-bold text-rose-300 px-1.5 py-0.5 rounded-md bg-rose-500/20 border border-rose-500/30">
+                <span className="text-xs font-bold text-[#e57373] px-1.5 py-0.5 rounded-md bg-[#451b16]/40 border border-rose-500/20">
                   ต้องเร่งรัด
                 </span>
               )}
             </div>
-            <div className="text-xs text-rose-300/80 mt-1">
+            <div className="text-xs text-[#e57373]/80 mt-1">
               ยังไม่แล้วเสร็จตามแผน
             </div>
           </div>
@@ -328,8 +328,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div className="lg:col-span-2 bg-[#1e293b] rounded-xl border border-slate-700 p-5 sm:p-6 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 pb-3 border-b border-slate-700/60 gap-2">
             <div>
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-amber-500" />
+              <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-sky-400" />
                 สถานะผลการดำเนินงาน เปรียบเทียบ 4 งานหลัก
               </h3>
               <p className="text-xs text-slate-400">
@@ -371,11 +371,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <Legend 
                   wrapperStyle={{ paddingTop: '10px', fontSize: '12px', color: '#cbd5e1' }} 
                 />
-                <Bar dataKey="completed" name="เสร็จสิ้น" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="inProgress" name="กำลังดำเนินการ" stackId="a" fill="#38bdf8" />
-                <Bar dataKey="pending" name="รอตรวจ/อนุมัติ" stackId="a" fill="#f59e0b" />
-                <Bar dataKey="delayed" name="ล่าช้า" stackId="a" fill="#f43f5e" />
-                <Bar dataKey="notStarted" name="ยังไม่เริ่ม" stackId="a" fill="#64748b" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="completed" name="เสร็จสิ้น" stackId="a" fill={STATUS_CONFIG.completed.color} radius={[0, 0, 0, 0]} />
+                <Bar dataKey="inProgress" name="กำลังดำเนินการ" stackId="a" fill={STATUS_CONFIG.in_progress.color} />
+                <Bar dataKey="pending" name="รอตรวจ/อนุมัติ" stackId="a" fill={STATUS_CONFIG.pending_review.color} />
+                <Bar dataKey="delayed" name="ล่าช้า" stackId="a" fill={STATUS_CONFIG.delayed.color} />
+                <Bar dataKey="notStarted" name="ยังไม่เริ่ม" stackId="a" fill={STATUS_CONFIG.not_started.color} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -384,7 +384,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* Chart 2: Status Proportion (PieChart) */}
         <div className="bg-[#1e293b] rounded-xl border border-slate-700 p-5 sm:p-6 shadow-sm flex flex-col justify-between">
           <div className="mb-2 pb-3 border-b border-slate-700/60">
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
+            <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
               <Activity className="w-4 h-4 text-emerald-400" />
               สัดส่วนสถานะงานภาพรวม
             </h3>
@@ -422,7 +422,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-xl font-bold text-white">{stats.completionRate}%</span>
+              <span className="text-xl font-bold text-slate-100">{stats.completionRate}%</span>
               <span className="text-[10px] text-slate-400">อัตราสำเร็จ</span>
             </div>
           </div>
@@ -447,8 +447,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
       <div className="bg-[#1e293b] rounded-xl border border-slate-700 p-5 sm:p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 pb-3 border-b border-slate-700/60 gap-2">
           <div>
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-amber-500" />
+            <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-sky-400" />
               แนวโน้มและการกระจายตัวของภารกิจประจำเดือน (ตุลาคม 2569 – กันยายน 2570)
             </h3>
             <p className="text-xs text-slate-400">
@@ -466,8 +466,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  <stop offset="5%" stopColor={STATUS_CONFIG.completed.color} stopOpacity={0.4} />
+                  <stop offset="95%" stopColor={STATUS_CONFIG.completed.color} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
@@ -494,7 +494,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       <div>
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-bold text-white">
+            <h3 className="text-lg font-bold text-slate-100">
               ผลการดำเนินงานแยกตาม 4 งานหลัก (14 หน่วยงานย่อย)
             </h3>
             <p className="text-xs sm:text-sm text-slate-400">
@@ -503,7 +503,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
           <button
             onClick={onViewAllTasks}
-            className="text-xs sm:text-sm font-semibold text-amber-400 hover:text-amber-300 flex items-center gap-1"
+            className="text-xs sm:text-sm font-semibold text-sky-400 hover:text-sky-300 flex items-center gap-1"
           >
             <span>ดูรายการทั้งหมด</span>
             <ChevronRight className="w-4 h-4" />
@@ -526,17 +526,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-3">
-                    <span className="w-8 h-8 rounded-lg bg-slate-800 text-amber-400 font-bold text-sm flex items-center justify-center border border-slate-700">
+                    <span className="w-8 h-8 rounded-lg bg-slate-800 text-sky-400 font-bold text-sm flex items-center justify-center border border-slate-700">
                       {division.code}
                     </span>
                     <div>
-                      <h4 className="font-bold text-white text-base">{division.name}</h4>
+                      <h4 className="font-bold text-slate-100 text-base">{division.name}</h4>
                       <p className="text-xs text-slate-400 line-clamp-1">{division.description}</p>
                     </div>
                   </div>
                   <button
                     onClick={() => onSelectDivision(division.id)}
-                    className="text-xs text-amber-400 hover:text-amber-300 font-medium px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition-colors"
+                    className="text-xs text-sky-400 hover:text-sky-300 font-medium px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 transition-colors"
                   >
                     ดูงาน
                   </button>
@@ -546,11 +546,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="mt-4">
                   <div className="flex items-center justify-between text-xs mb-1.5">
                     <span className="text-slate-300">ความสำเร็จภาพรวม:</span>
-                    <span className="font-bold text-white">{percent}% ({completed}/{total} งาน)</span>
+                    <span className="font-bold text-slate-100">{percent}% ({completed}/{total} งาน)</span>
                   </div>
                   <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
                     <div 
-                      className="bg-amber-500 h-2 rounded-full transition-all duration-500" 
+                      className="bg-sky-500 h-2 rounded-full transition-all duration-500" 
                       style={{ width: `${percent}%` }}
                     ></div>
                   </div>
@@ -596,8 +596,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       กำลังทำ {inProgress}
                     </span>
                     {delayed > 0 && (
-                      <span className="flex items-center gap-1 text-rose-400 font-medium">
-                        <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                      <span className="flex items-center gap-1 text-[#e57373] font-medium">
+                        <span className="w-2 h-2 rounded-full bg-[#e57373]"></span>
                         ล่าช้า {delayed}
                       </span>
                     )}
@@ -611,12 +611,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Delayed & Urgent Watchlist */}
       {delayedTasks.length > 0 && (
-        <div className="bg-[#1e293b] rounded-xl border border-rose-500/40 p-5 sm:p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-rose-500/30">
+        <div className="bg-[#1e293b] rounded-xl border border-rose-500/20 p-5 sm:p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-rose-500/15">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-rose-400" />
+              <AlertTriangle className="w-5 h-5 text-[#e57373]" />
               <div>
-                <h3 className="font-bold text-white text-base">
+                <h3 className="font-bold text-slate-100 text-base">
                   ภารกิจที่ล่าช้าหรือต้องเร่งรัดติดตาม ({delayedTasks.length} รายการ)
                 </h3>
                 <p className="text-xs text-slate-400">
@@ -644,7 +644,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   const unit = div?.units.find((u) => u.id === t.unitId);
                   return (
                     <tr key={t.id} className="hover:bg-slate-800/50 transition-colors">
-                      <td className="px-4 py-3 font-medium text-white">
+                      <td className="px-4 py-3 font-medium text-slate-100">
                         <div>{t.title}</div>
                         <div className="text-xs text-slate-400 font-normal">
                           ความก้าวหน้า {t.progress}%
@@ -661,11 +661,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         {t.dueDate}
                       </td>
                       <td className="px-3 py-3 max-w-xs text-xs">
-                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20 mb-1">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border mb-1 ${STATUS_CONFIG[t.status].badgeClass}`}>
                           {STATUS_CONFIG[t.status].label}
                         </span>
                         {t.issues && (
-                          <div className="text-rose-400 text-xs line-clamp-1 italic">
+                          <div className="text-[#e57373] text-xs line-clamp-1 italic">
                             ⚠️ {t.issues}
                           </div>
                         )}
@@ -673,7 +673,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       <td className="px-3 py-3 text-right whitespace-nowrap">
                         <button
                           onClick={() => onEditTask(t)}
-                          className="text-xs font-medium text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1.5 rounded-lg transition-colors border border-amber-500/20"
+                          className="text-xs font-medium text-sky-400 hover:text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 px-2.5 py-1.5 rounded-lg transition-colors border border-sky-500/20"
                         >
                           อัปเดตงาน
                         </button>

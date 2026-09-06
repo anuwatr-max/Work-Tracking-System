@@ -115,11 +115,11 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
       <div className="bg-[#1e293b] rounded-xl border border-slate-700 p-4 sm:p-6 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            <span className="p-2 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
               <FileText className="w-5 h-5" />
             </span>
             <div>
-              <h2 className="text-lg sm:text-xl font-bold text-white">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-100">
                 สรุปผลการดำเนินงานของแต่ละงานประจำเดือน
               </h2>
               <p className="text-xs sm:text-sm text-slate-400">
@@ -139,7 +139,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
             <select
               value={activeMonthId}
               onChange={(e) => setActiveMonthId(e.target.value)}
-              className="text-sm font-semibold text-amber-400 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+              className="text-sm font-semibold text-sky-400 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
             >
               {FISCAL_MONTHS.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -151,7 +151,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
 
           <button
             onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-300 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 hover:text-white transition-colors shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-300 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 hover:text-slate-100 transition-colors shadow-xs cursor-pointer"
           >
             <Printer className="w-4 h-4 text-slate-400" />
             <span>พิมพ์รายงานสรุป</span>
@@ -160,13 +160,13 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
       </div>
 
       {/* Monthly Summary Statistics Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700 rounded-xl p-5 sm:p-6 text-white shadow-sm">
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700 rounded-xl p-5 sm:p-6 text-slate-100 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <span className="text-xs font-medium uppercase tracking-wider text-amber-400">
+            <span className="text-xs font-medium uppercase tracking-wider text-sky-400">
               Executive Monthly Summary
             </span>
-            <h3 className="text-xl sm:text-2xl font-bold mt-1 text-white">
+            <h3 className="text-xl sm:text-2xl font-bold mt-1 text-slate-100">
               รายงานผลการดำเนินงาน ประจำเดือน {currentMonthInfo.label}
             </h3>
             <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl">
@@ -176,19 +176,19 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
 
           <div className="grid grid-cols-4 gap-2 sm:gap-4 bg-slate-800/80 backdrop-blur-xs p-3 rounded-lg border border-slate-700 text-center">
             <div>
-              <div className="text-lg sm:text-2xl font-bold text-white">{monthStats.total}</div>
+              <div className="text-lg sm:text-2xl font-bold text-slate-100">{monthStats.total}</div>
               <div className="text-[11px] text-slate-400">ภารกิจในเดือน</div>
             </div>
             <div>
-              <div className="text-lg sm:text-2xl font-bold text-emerald-400">{monthStats.completed}</div>
+              <div className="text-lg sm:text-2xl font-bold text-[#3eb489]">{monthStats.completed}</div>
               <div className="text-[11px] text-slate-400">เสร็จสิ้น ({monthStats.rate}%)</div>
             </div>
             <div>
-              <div className="text-lg sm:text-2xl font-bold text-amber-400">{monthStats.inProgress}</div>
+              <div className="text-lg sm:text-2xl font-bold text-[#9bbad2]">{monthStats.inProgress}</div>
               <div className="text-[11px] text-slate-400">กำลังทำ</div>
             </div>
             <div>
-              <div className="text-lg sm:text-2xl font-bold text-rose-400">{monthStats.delayed}</div>
+              <div className="text-lg sm:text-2xl font-bold text-[#e57373]">{monthStats.delayed}</div>
               <div className="text-[11px] text-slate-400">ล่าช้า</div>
             </div>
           </div>
@@ -216,11 +216,11 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
               {/* Card Header */}
               <div className="bg-slate-800/70 border-b border-slate-700 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center space-x-3">
-                  <span className="w-9 h-9 rounded-lg bg-amber-500 text-slate-950 font-bold flex items-center justify-center text-sm shadow-xs">
+                  <span className="w-9 h-9 rounded-lg bg-sky-500 text-slate-100 font-bold flex items-center justify-center text-sm shadow-xs">
                     {division.code}
                   </span>
                   <div>
-                    <h3 className="font-bold text-white text-base sm:text-lg flex items-center gap-2">
+                    <h3 className="font-bold text-slate-100 text-base sm:text-lg flex items-center gap-2">
                       {division.name}
                     </h3>
                     <p className="text-xs text-slate-400">
@@ -232,11 +232,11 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
                 <div className="flex items-center space-x-3">
                   <div className="text-right text-xs">
                     <span className="text-slate-400">ความก้าวหน้าเดือนนี้: </span>
-                    <span className="font-bold text-amber-400">{divCompleted}/{divTotal} งาน ({divRate}%)</span>
+                    <span className="font-bold text-sky-400">{divCompleted}/{divTotal} งาน ({divRate}%)</span>
                   </div>
                   <button
                     onClick={() => handleStartEdit(division.id)}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-amber-400 hover:text-amber-300 bg-slate-800 border border-slate-700 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg transition-colors shadow-xs cursor-pointer"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-sky-400 hover:text-sky-300 bg-slate-800 border border-slate-700 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg transition-colors shadow-xs cursor-pointer"
                   >
                     <Edit3 className="w-3.5 h-3.5" />
                     <span>แก้ไขรายงานสรุป</span>
@@ -249,7 +249,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
                 {/* 1. สรุปผลภาพรวม */}
                 <div>
                   <h4 className="font-bold flex items-center gap-1.5 text-xs uppercase tracking-wider text-slate-400 mb-1">
-                    <Building2 className="w-3.5 h-3.5 text-amber-400" />
+                    <Building2 className="w-3.5 h-3.5 text-sky-400" />
                     สรุปผลการดำเนินงานภาพรวมประจำเดือน
                   </h4>
                   <p className="text-slate-200 bg-slate-800/60 p-3.5 rounded-lg leading-relaxed border border-slate-700/60">
@@ -278,11 +278,11 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
 
                   {/* ปัญหาและอุปสรรค */}
                   <div>
-                    <h4 className="font-bold flex items-center gap-1.5 text-xs uppercase tracking-wider text-rose-400 mb-1">
-                      <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                    <h4 className="font-bold flex items-center gap-1.5 text-xs uppercase tracking-wider text-[#e57373] mb-1">
+                      <AlertTriangle className="w-3.5 h-3.5 text-[#e57373]" />
                       ปัญหา อุปสรรค และแนวทางแก้ไข (Issues & Solutions)
                     </h4>
-                    <div className="text-slate-200 bg-rose-950/20 p-3.5 rounded-lg leading-relaxed border border-rose-500/30 min-h-20">
+                    <div className="text-slate-200 bg-[#451b16]/20 p-3.5 rounded-lg leading-relaxed border border-rose-500/20 min-h-20">
                       {summary?.obstacles || (
                         <span className="text-slate-500 italic">ไม่มีปัญหาหรืออุปสรรคที่ต้องรายงาน</span>
                       )}
@@ -292,11 +292,11 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
 
                 {/* 3. แผนงานในเดือนถัดไป */}
                 <div>
-                  <h4 className="font-bold flex items-center gap-1.5 text-xs uppercase tracking-wider text-amber-400 mb-1">
-                    <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
+                  <h4 className="font-bold flex items-center gap-1.5 text-xs uppercase tracking-wider text-sky-400 mb-1">
+                    <TrendingUp className="w-3.5 h-3.5 text-sky-400" />
                     แผนงานสำคัญและข้อเสนอแนะในเดือนถัดไป (Next Steps)
                   </h4>
-                  <div className="text-slate-200 bg-amber-950/20 p-3.5 rounded-lg leading-relaxed border border-amber-500/30">
+                  <div className="text-slate-200 bg-sky-950/20 p-3.5 rounded-lg leading-relaxed border border-sky-500/30">
                     {summary?.nextPlan || (
                       <span className="text-slate-500 italic">ยังไม่ได้ระบุแผนงานเดือนถัดไป</span>
                     )}
@@ -350,19 +350,19 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
           <div className="bg-[#1e293b] rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-700 relative animate-in fade-in duration-150 text-slate-200">
             <button
               onClick={() => setEditingDivision(null)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-white p-1 rounded-full hover:bg-slate-800 cursor-pointer"
+              className="absolute right-4 top-4 text-slate-400 hover:text-slate-100 p-1 rounded-full hover:bg-slate-800 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="flex items-center gap-2 mb-1">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20">
                 {currentMonthInfo.label}
               </span>
               <span className="text-xs text-slate-400">ปีงบประมาณ 2570</span>
             </div>
 
-            <h3 className="text-lg font-bold text-white">
+            <h3 className="text-lg font-bold text-slate-100">
               บันทึกสรุปผลการดำเนินงาน: {DIVISIONS_DATA.find(d => d.id === editingDivision)?.name}
             </h3>
 
@@ -376,7 +376,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
                   value={editForm.summaryText}
                   onChange={(e) => setEditForm({ ...editForm, summaryText: e.target.value })}
                   placeholder="ระบุภาพรวมการดำเนินงานของสายงานในเดือนนี้..."
-                  className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                  className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
                 />
               </div>
 
@@ -389,7 +389,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
                   value={editForm.achievements}
                   onChange={(e) => setEditForm({ ...editForm, achievements: e.target.value })}
                   placeholder="เช่น บรรลุเป้าหมายตัวชี้วัด, ยอดผู้สมัครเกินเป้า, ตรวจนับพัสดุครบ 100%..."
-                  className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                  className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
                 />
               </div>
 
@@ -402,7 +402,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
                   value={editForm.obstacles}
                   onChange={(e) => setEditForm({ ...editForm, obstacles: e.target.value })}
                   placeholder="ระบุปัญหาที่พบ อุปสรรค และสิ่งที่ต้องการการสนับสนุน..."
-                  className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                  className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
                 />
               </div>
 
@@ -415,7 +415,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
                   value={editForm.nextPlan}
                   onChange={(e) => setEditForm({ ...editForm, nextPlan: e.target.value })}
                   placeholder="ภารกิจหลักหรือโครงการที่จะดำเนินการต่อในเดือนหน้า..."
-                  className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                  className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
                 />
               </div>
 
@@ -428,7 +428,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
                   value={editForm.reporter}
                   onChange={(e) => setEditForm({ ...editForm, reporter: e.target.value })}
                   placeholder="เช่น นายอนุวัฒน์ รัตนชัย (หัวหน้างาน)"
-                  className="w-full p-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                  className="w-full p-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
                 />
               </div>
             </div>
@@ -442,7 +442,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
               </button>
               <button
                 onClick={handleSaveEdit}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs sm:text-sm transition-colors shadow-md shadow-amber-500/20 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-sky-500 hover:bg-sky-400 text-slate-100 font-bold rounded-lg text-xs sm:text-sm transition-colors shadow-md shadow-sky-500/25 cursor-pointer"
               >
                 <Save className="w-4 h-4" />
                 <span>บันทึกสรุปผลงาน</span>

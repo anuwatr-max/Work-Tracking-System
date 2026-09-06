@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   WorkTask, 
   TaskStatus, 
@@ -23,8 +23,15 @@ import {
   Calendar,
   User,
   SlidersHorizontal,
-  X
+  RefreshCw,
+  X,
+  ChevronDown,
+  FileSpreadsheet,
+  Upload
 } from 'lucide-react';
+import { ConfirmModal } from './ConfirmModal';
+import { CsvImportModal } from './CsvImportModal';
+import { exportTasksToCSV } from '../utils/exportCsv';
 
 interface TaskListViewProps {
   tasks: WorkTask[];
@@ -33,6 +40,10 @@ interface TaskListViewProps {
   onDeleteTask: (taskId: string) => void;
   onQuickStatusChange: (taskId: string, newStatus: TaskStatus) => void;
   selectedDivisionInitial?: DivisionId | 'all';
+  resetFilterSignal?: number;
+  onSyncData?: () => void;
+  onShowToast?: (msg: string) => void;
+  onSaveImportedTasks?: (updatedTasks: WorkTask[], updatedCount: number, newCount: number) => void;
 }
 
 export const TaskListView: React.FC<TaskListViewProps> = ({
@@ -42,6 +53,10 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   onDeleteTask,
   onQuickStatusChange,
   selectedDivisionInitial = 'all',
+  resetFilterSignal,
+  onSyncData,
+  onShowToast,
+  onSaveImportedTasks,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
@@ -49,7 +64,46 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   const [selectedUnit, setSelectedUnit] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<TaskStatus | 'all'>('all');
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
-  const [inspectTask, setInspectTask] = useState<WorkTask | null>(null);
+  const [inspectTaskId, setInspectTaskId] = useState<string | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<WorkTask | null>(null);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close export menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setIsExportMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Synchronize division if prop changes from parent (e.g. from Dashboard or Navbar)
+  useEffect(() => {
+    setSelectedDivision(selectedDivisionInitial);
+    setSelectedUnit('all');
+  }, [selectedDivisionInitial]);
+
+  // Synchronize and reset all filters when resetFilterSignal is triggered (e.g. clicking 'ทะเบียนติดตามงาน (ทั้งหมด)')
+  useEffect(() => {
+    if (resetFilterSignal !== undefined && resetFilterSignal > 0) {
+      setSelectedMonth('all');
+      setSelectedDivision('all');
+      setSelectedUnit('all');
+      setSelectedStatus('all');
+      setSearchQuery('');
+    }
+  }, [resetFilterSignal]);
+
+  // Dynamically derive inspected task so changes from editing/saving are always live
+  const inspectTask = useMemo(() => {
+    return tasks.find((t) => t.id === inspectTaskId) || null;
+  }, [tasks, inspectTaskId]);
 
   // When division changes, reset unit if not matching
   const handleDivisionChange = (divId: DivisionId | 'all') => {
@@ -92,54 +146,36 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
     });
   }, [tasks, selectedMonth, selectedDivision, selectedUnit, selectedStatus, searchQuery]);
 
-  // Export CSV
-  const handleExportCSV = () => {
-    const headers = [
-      'ลำดับ',
-      'ชื่องาน / ภารกิจ',
-      'งานหลัก',
-      'หน่วยงานย่อย',
-      'ประจำเดือน',
-      'ผู้รับผิดชอบ',
-      'สถานะ',
-      'ความก้าวหน้า (%)',
-      'วันที่เริ่ม',
-      'กำหนดส่ง',
-      'รายละเอียด',
-      'ผลการดำเนินงาน',
-      'ปัญหาและอุปสรรค'
-    ];
+  // Export CSV functions
+  const handleExportAllTasks = () => {
+    if (tasks.length === 0) {
+      onShowToast?.('ไม่มีข้อมูลภารกิจสำหรับส่งออก');
+      setIsExportMenuOpen(false);
+      return;
+    }
+    const result = exportTasksToCSV(tasks, 'ทะเบียนติดตามงาน_ทั้งหมด_คณะโลจิสติกส์_2570');
+    onShowToast?.(`ส่งออกทะเบียนติดตามงาน (ทั้งหมด) จำนวน ${result.count} รายการ และบันทึกไฟล์สำเร็จ`);
+    setIsExportMenuOpen(false);
+  };
 
-    const rows = filteredTasks.map((t, idx) => {
-      const div = DIVISIONS_DATA.find((d) => d.id === t.divisionId);
-      const unit = div?.units.find((u) => u.id === t.unitId);
-      const month = FISCAL_MONTHS.find((m) => m.id === t.monthId);
-      return [
-        idx + 1,
-        `"${t.title.replace(/"/g, '""')}"`,
-        `"${div?.name || ''}"`,
-        `"${unit?.name || ''}"`,
-        `"${month?.label || ''}"`,
-        `"${t.assignee}"`,
-        `"${STATUS_CONFIG[t.status].label}"`,
-        t.progress,
-        t.startDate,
-        t.dueDate,
-        `"${(t.description || '').replace(/"/g, '""')}"`,
-        `"${(t.output || '').replace(/"/g, '""')}"`,
-        `"${(t.issues || '').replace(/"/g, '""')}"`,
-      ];
-    });
-
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `work_tracking_report_${selectedMonth}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleExportFilteredTasks = () => {
+    if (filteredTasks.length === 0) {
+      onShowToast?.('ไม่มีรายการที่ตรงตามเงื่อนไขตัวกรองสำหรับส่งออก');
+      setIsExportMenuOpen(false);
+      return;
+    }
+    const divName = selectedDivision !== 'all' ? DIVISIONS_DATA.find((d) => d.id === selectedDivision)?.name : '';
+    const monthLabel = selectedMonth !== 'all' ? FISCAL_MONTHS.find((m) => m.id === selectedMonth)?.label : '';
+    const prefixParts = [
+      'ทะเบียนติดตามงาน',
+      divName,
+      monthLabel,
+      selectedStatus !== 'all' ? STATUS_CONFIG[selectedStatus]?.label : '',
+      'ที่กรองแล้ว'
+    ].filter(Boolean);
+    const result = exportTasksToCSV(filteredTasks, prefixParts.join('_') || 'ทะเบียนติดตามงาน_ที่กรองแล้ว');
+    onShowToast?.(`ส่งออกรายการที่กรองแล้ว จำนวน ${result.count} รายการ และบันทึกไฟล์สำเร็จ`);
+    setIsExportMenuOpen(false);
   };
 
   return (
@@ -148,7 +184,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
       <div className="bg-[#1e293b] rounded-xl border border-slate-700 p-4 sm:p-5 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-white">
+            <h2 className="text-lg font-bold text-slate-100">
               ทะเบียนติดตามงาน (Work Items Register)
             </h2>
             <p className="text-xs sm:text-sm text-slate-400">
@@ -157,18 +193,123 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleExportCSV}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-slate-300 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 hover:text-white transition-colors shadow-xs"
-              title="ส่งออกรายการเป็นไฟล์ Excel / CSV"
-            >
-              <Download className="w-4 h-4 text-slate-400" />
-              <span>ส่งออก CSV</span>
-            </button>
+            {onSyncData && (
+              <button
+                onClick={onSyncData}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-sky-300 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 hover:text-sky-200 transition-colors shadow-xs cursor-pointer"
+                title="ซิงค์และรีเฟรชข้อมูลภารกิจทั้งหมด"
+              >
+                <RefreshCw className="w-4 h-4 text-sky-400" />
+                <span>ซิงค์ข้อมูล</span>
+              </button>
+            )}
+
+            {/* Export CSV Menu with direct link to all tasks register */}
+            <div className="relative" ref={exportMenuRef}>
+              <button
+                id="export-csv-btn"
+                onClick={() => setIsExportMenuOpen((prev) => !prev)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-slate-200 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 hover:text-sky-300 transition-colors shadow-xs cursor-pointer"
+                title="ส่งออกหรือนำเข้าข้อมูลทะเบียนติดตามงานเป็นไฟล์ Excel / CSV"
+              >
+                <Download className="w-4 h-4 text-sky-400" />
+                <span>จัดการ CSV</span>
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-150 ${isExportMenuOpen ? 'rotate-180 text-sky-400' : ''}`} />
+              </button>
+
+              {isExportMenuOpen && (
+                <div className="absolute right-0 mt-1.5 w-72 sm:w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-3 py-2 text-xs text-slate-400 font-semibold border-b border-slate-800 flex items-center justify-between">
+                    <span>จัดการข้อมูล Excel / CSV</span>
+                    <span className="text-[11px] text-sky-400 font-normal">UTF-8 ภาษาไทย</span>
+                  </div>
+
+                  <div className="py-1 space-y-1">
+                    {/* Export All Tasks in Register */}
+                    <button
+                      id="export-all-tasks-option"
+                      onClick={handleExportAllTasks}
+                      className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors flex items-start gap-2.5 group cursor-pointer"
+                    >
+                      <div className="p-1.5 rounded-md bg-sky-500/10 text-sky-400 group-hover:bg-sky-500/20 mt-0.5 shrink-0">
+                        <FileSpreadsheet className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs sm:text-sm font-semibold text-slate-100 group-hover:text-sky-300 flex items-center justify-between">
+                          <span>ส่งออกทะเบียนงาน (ทั้งหมด)</span>
+                          <span className="text-xs px-1.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 font-bold ml-1">
+                            {tasks.length} งาน
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          บันทึกไฟล์ CSV ฐานข้อมูลภารกิจทั้งหมดในทะเบียน 4 งานหลัก 14 หน่วยงาน
+                        </p>
+                      </div>
+                    </button>
+
+                    {/* Export Filtered Tasks */}
+                    <button
+                      id="export-filtered-tasks-option"
+                      onClick={handleExportFilteredTasks}
+                      disabled={filteredTasks.length === 0}
+                      className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors flex items-start gap-2.5 group cursor-pointer ${
+                        filteredTasks.length === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-800'
+                      }`}
+                    >
+                      <div className="p-1.5 rounded-md bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500/20 mt-0.5 shrink-0">
+                        <Filter className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs sm:text-sm font-semibold text-slate-100 group-hover:text-emerald-300 flex items-center justify-between">
+                          <span>ส่งออกเฉพาะที่กรองไว้</span>
+                          <span className="text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold ml-1">
+                            {filteredTasks.length} งาน
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          {selectedDivision !== 'all' || selectedMonth !== 'all' || selectedStatus !== 'all' || searchQuery.trim() !== ''
+                            ? 'บันทึกไฟล์ CSV เฉพาะรายการที่ตรงตามเงื่อนไขตัวกรอง'
+                            : 'ตรงกับข้อมูลทั้งหมด (ยังไม่มีการกรอง)'}
+                        </p>
+                      </div>
+                    </button>
+
+                    {/* Import / Save Updated CSV */}
+                    {onSaveImportedTasks && (
+                      <div className="pt-1 mt-1 border-t border-slate-800">
+                        <button
+                          id="import-updated-csv-option"
+                          onClick={() => {
+                            setIsExportMenuOpen(false);
+                            setIsImportModalOpen(true);
+                          }}
+                          className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors flex items-start gap-2.5 group cursor-pointer"
+                        >
+                          <div className="p-1.5 rounded-md bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500/20 mt-0.5 shrink-0">
+                            <Upload className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs sm:text-sm font-semibold text-slate-100 group-hover:text-indigo-300 flex items-center justify-between">
+                              <span>นำเข้า/บันทึกไฟล์ที่ปรับปรุงแล้ว</span>
+                              <span className="text-[10px] px-1.5 py-0.2 rounded-sm bg-indigo-500/20 text-indigo-300">
+                                Import
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              อัปโหลดและบันทึกไฟล์ CSV ที่แก้ไขแล้วกลับคืนสู่ระบบ
+                            </p>
+                          </div>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             <button
               onClick={onAddTask}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-950 bg-amber-500 rounded-lg hover:bg-amber-400 active:bg-amber-600 transition-colors shadow-md shadow-amber-500/20"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-100 bg-sky-500 rounded-lg hover:bg-sky-400 active:bg-sky-600 transition-colors shadow-md shadow-sky-500/25 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>เพิ่มงานใหม่</span>
@@ -186,7 +327,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
               placeholder="ค้นชื่องาน, ผู้รับผิดชอบ..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+              className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
             />
             {searchQuery && (
               <button 
@@ -203,7 +344,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full py-1.5 px-2.5 text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+              className="w-full py-1.5 px-2.5 text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
             >
               <option value="all">📅 ประจำเดือน: ทุกเดือน</option>
               {FISCAL_MONTHS.map((m) => (
@@ -219,7 +360,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             <select
               value={selectedDivision}
               onChange={(e) => handleDivisionChange(e.target.value as DivisionId | 'all')}
-              className="w-full py-1.5 px-2.5 text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+              className="w-full py-1.5 px-2.5 text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
             >
               <option value="all">🏢 งานหลัก: ทั้งหมด 4 งาน</option>
               {DIVISIONS_DATA.map((d) => (
@@ -235,7 +376,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             <select
               value={selectedUnit}
               onChange={(e) => setSelectedUnit(e.target.value)}
-              className="w-full py-1.5 px-2.5 text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+              className="w-full py-1.5 px-2.5 text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
             >
               <option value="all">📂 หน่วยงานย่อย: ทั้งหมด</option>
               {availableUnits.map((u) => (
@@ -251,7 +392,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value as TaskStatus | 'all')}
-              className="w-full py-1.5 px-2.5 text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+              className="w-full py-1.5 px-2.5 text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
             >
               <option value="all">🚦 สถานะ: ทั้งหมด</option>
               <option value="completed">เสร็จสิ้น</option>
@@ -263,10 +404,38 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           </div>
         </div>
 
+        {/* Active Filter Notice Banner if any filter is applied */}
+        {(selectedMonth !== 'all' || selectedDivision !== 'all' || selectedUnit !== 'all' || selectedStatus !== 'all' || searchQuery.trim() !== '') && (
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-sky-950/40 border border-sky-500/30 px-3.5 py-2 rounded-lg text-xs text-sky-200">
+            <div className="flex items-center gap-2">
+              <Filter className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <span>
+                กำลังแสดงผลตามตัวกรอง: <strong>{filteredTasks.length}</strong> จากทั้งหมด <strong>{tasks.length}</strong> งาน
+                {selectedDivision !== 'all' && ` • ${DIVISIONS_DATA.find(d => d.id === selectedDivision)?.name}`}
+                {selectedMonth !== 'all' && ` • ${FISCAL_MONTHS.find(m => m.id === selectedMonth)?.label}`}
+                {selectedStatus !== 'all' && ` • ${STATUS_CONFIG[selectedStatus]?.label}`}
+                {searchQuery.trim() && ` • "${searchQuery}"`}
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                setSelectedMonth('all');
+                setSelectedDivision('all');
+                setSelectedUnit('all');
+                setSelectedStatus('all');
+                setSearchQuery('');
+              }}
+              className="text-xs font-semibold text-sky-400 hover:text-sky-300 hover:underline cursor-pointer inline-flex items-center gap-1"
+            >
+              <span>แสดงข้อมูลทั้งหมด ({tasks.length} งาน)</span>
+            </button>
+          </div>
+        )}
+
         {/* Filter Summary & View Mode Switcher */}
         <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
           <div>
-            พบภารกิจ <span className="font-semibold text-slate-200">{filteredTasks.length}</span> รายการ
+            พบภารกิจ <span className="font-semibold text-slate-200">{filteredTasks.length}</span> จากทั้งหมด <span className="font-semibold text-slate-200">{tasks.length}</span> รายการ
             {(selectedMonth !== 'all' || selectedDivision !== 'all' || selectedStatus !== 'all' || searchQuery) && (
               <button
                 onClick={() => {
@@ -276,9 +445,9 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                   setSelectedStatus('all');
                   setSearchQuery('');
                 }}
-                className="ml-2 text-amber-400 hover:text-amber-300 hover:underline inline-flex items-center gap-1"
+                className="ml-2 text-sky-400 hover:text-sky-300 hover:underline inline-flex items-center gap-1 cursor-pointer font-medium"
               >
-                <span>ล้างตัวกรอง</span>
+                <span>ล้างตัวกรองทั้งหมด</span>
               </button>
             )}
           </div>
@@ -288,7 +457,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
               onClick={() => setViewMode('table')}
               title="มุมมองตาราง"
               className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                viewMode === 'table' ? 'bg-slate-700 text-amber-400 font-semibold shadow-xs' : 'text-slate-400 hover:text-slate-200'
+                viewMode === 'table' ? 'bg-slate-700 text-sky-400 font-semibold shadow-xs' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <List className="w-3.5 h-3.5" />
@@ -297,7 +466,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
               onClick={() => setViewMode('cards')}
               title="มุมมองการ์ด"
               className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                viewMode === 'cards' ? 'bg-slate-700 text-amber-400 font-semibold shadow-xs' : 'text-slate-400 hover:text-slate-200'
+                viewMode === 'cards' ? 'bg-slate-700 text-sky-400 font-semibold shadow-xs' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
@@ -316,7 +485,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           </p>
           <button
             onClick={onAddTask}
-            className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-semibold text-slate-950 bg-amber-500 rounded-lg hover:bg-amber-400 shadow-md shadow-amber-500/20"
+            className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-semibold text-slate-100 bg-sky-500 rounded-lg hover:bg-sky-400 shadow-md shadow-sky-500/25 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>เพิ่มงานใหม่ในหมวดนี้</span>
@@ -355,8 +524,8 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                       {/* Title */}
                       <td className="px-4 py-3 max-w-xs sm:max-w-md">
                         <div 
-                          className="font-semibold text-white hover:text-amber-400 cursor-pointer transition-colors"
-                          onClick={() => setInspectTask(task)}
+                          className="font-semibold text-slate-100 hover:text-sky-400 cursor-pointer transition-colors"
+                          onClick={() => setInspectTaskId(task.id)}
                         >
                           {task.title}
                         </div>
@@ -398,8 +567,10 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                           <div className="w-16 bg-slate-700 rounded-full h-2 overflow-hidden">
                             <div 
                               className={`h-2 rounded-full transition-all ${
-                                task.status === 'completed' ? 'bg-emerald-500' :
-                                task.status === 'delayed' ? 'bg-rose-500' : 'bg-amber-500'
+                                task.status === 'completed' ? 'bg-[#2e9369]' :
+                                task.status === 'delayed' ? 'bg-[#e57373]' :
+                                task.status === 'pending_review' ? 'bg-[#c5a059]' :
+                                task.status === 'in_progress' ? 'bg-[#6b8fae]' : 'bg-slate-500'
                               }`}
                               style={{ width: `${task.progress}%` }}
                             ></div>
@@ -427,25 +598,21 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                       <td className="px-3 py-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end space-x-1">
                           <button
-                            onClick={() => setInspectTask(task)}
+                            onClick={() => setInspectTaskId(task.id)}
                             title="ดูรายละเอียดงาน"
-                            className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-sky-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => onEditTask(task)}
                             title="แก้ไขข้อมูลงาน"
-                            className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-sky-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
                           >
                             <Edit3 className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => {
-                              if (window.confirm(`ยืนยันการลบภารกิจ "${task.title}" ?`)) {
-                                onDeleteTask(task.id);
-                              }
-                            }}
+                            onClick={() => setTaskToDelete(task)}
                             title="ลบภารกิจ"
                             className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
                           >
@@ -485,8 +652,8 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                   </div>
 
                   <h4 
-                    onClick={() => setInspectTask(task)}
-                    className="font-bold text-white text-sm sm:text-base hover:text-amber-400 cursor-pointer line-clamp-2 transition-colors"
+                    onClick={() => setInspectTaskId(task.id)}
+                    className="font-bold text-slate-100 text-sm sm:text-base hover:text-sky-400 cursor-pointer line-clamp-2 transition-colors"
                   >
                     {task.title}
                   </h4>
@@ -508,7 +675,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                   )}
 
                   {task.issues && (
-                    <div className="text-xs text-rose-400 mt-1.5 bg-rose-950/30 p-2 rounded border border-rose-500/30">
+                    <div className="text-xs text-[#e57373] mt-1.5 bg-[#451b16]/30 p-2 rounded border border-rose-500/20">
                       ⚠️ ปัญหา: {task.issues}
                     </div>
                   )}
@@ -517,13 +684,15 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                 <div className="mt-4 pt-3 border-t border-slate-700/60">
                   <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
                     <span>ความก้าวหน้า</span>
-                    <span className="font-bold text-white">{task.progress}%</span>
+                    <span className="font-bold text-slate-100">{task.progress}%</span>
                   </div>
                   <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden mb-3">
                     <div 
                       className={`h-1.5 rounded-full ${
-                        task.status === 'completed' ? 'bg-emerald-500' :
-                        task.status === 'delayed' ? 'bg-rose-500' : 'bg-amber-500'
+                        task.status === 'completed' ? 'bg-[#2e9369]' :
+                        task.status === 'delayed' ? 'bg-[#e57373]' :
+                        task.status === 'pending_review' ? 'bg-[#c5a059]' :
+                        task.status === 'in_progress' ? 'bg-[#6b8fae]' : 'bg-slate-500'
                       }`}
                       style={{ width: `${task.progress}%` }}
                     ></div>
@@ -537,17 +706,13 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                     <div className="flex items-center space-x-1">
                       <button
                         onClick={() => onEditTask(task)}
-                        className="p-1 text-slate-400 hover:text-amber-400 rounded cursor-pointer"
+                        className="p-1 text-slate-400 hover:text-sky-400 rounded cursor-pointer"
                         title="แก้ไข"
                       >
                         <Edit3 className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => {
-                          if (window.confirm(`ยืนยันการลบภารกิจ "${task.title}" ?`)) {
-                            onDeleteTask(task.id);
-                          }
-                        }}
+                        onClick={() => setTaskToDelete(task)}
                         className="p-1 text-slate-400 hover:text-rose-400 rounded cursor-pointer"
                         title="ลบ"
                       >
@@ -567,14 +732,14 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="bg-[#1e293b] rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-700 relative animate-in fade-in duration-150 text-slate-200">
             <button
-              onClick={() => setInspectTask(null)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-white p-1 rounded-full hover:bg-slate-800 cursor-pointer"
+              onClick={() => setInspectTaskId(null)}
+              className="absolute right-4 top-4 text-slate-400 hover:text-slate-100 p-1 rounded-full hover:bg-slate-800 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="flex items-center gap-2 mb-2">
-              <span className="px-2.5 py-1 rounded-full text-xs font-medium border bg-amber-500/10 text-amber-400 border-amber-500/20">
+              <span className="px-2.5 py-1 rounded-full text-xs font-medium border bg-sky-500/10 text-sky-400 border-sky-500/20">
                 {FISCAL_MONTHS.find(m => m.id === inspectTask.monthId)?.label}
               </span>
               <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${STATUS_CONFIG[inspectTask.status].badgeClass}`}>
@@ -582,7 +747,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
               </span>
             </div>
 
-            <h3 className="text-lg font-bold text-white mt-1">
+            <h3 className="text-lg font-bold text-slate-100 mt-1">
               {inspectTask.title}
             </h3>
 
@@ -601,7 +766,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
               </div>
               <div>
                 <span className="text-slate-400 block">ผู้รับผิดชอบ:</span>
-                <span className="font-bold text-amber-400">{inspectTask.assignee}</span>
+                <span className="font-bold text-sky-400">{inspectTask.assignee}</span>
               </div>
               <div>
                 <span className="text-slate-400 block">ระยะเวลา:</span>
@@ -630,10 +795,10 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
 
               {inspectTask.issues && (
                 <div>
-                  <h5 className="font-bold text-xs uppercase tracking-wider text-rose-400 mb-1">
+                  <h5 className="font-bold text-xs uppercase tracking-wider text-[#e57373] mb-1">
                     ปัญหา / อุปสรรค / แนวทางแก้ไข
                   </h5>
-                  <p className="text-rose-200 bg-rose-950/30 border border-rose-500/30 p-3 rounded-lg leading-relaxed">
+                  <p className="text-[#e57373] bg-[#451b16]/30 border border-rose-500/20 p-3 rounded-lg leading-relaxed">
                     {inspectTask.issues}
                   </p>
                 </div>
@@ -641,7 +806,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
 
               {inspectTask.budget && (
                 <div className="text-xs text-slate-400 pt-1">
-                  งบประมาณดำเนินโครงการ: <span className="font-bold text-white">{inspectTask.budget.toLocaleString()} บาท</span>
+                  งบประมาณดำเนินโครงการ: <span className="font-bold text-slate-100">{inspectTask.budget.toLocaleString()} บาท</span>
                 </div>
               )}
             </div>
@@ -650,19 +815,27 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
               <div className="text-xs text-slate-400">
                 อัปเดตล่าสุด: {inspectTask.updatedAt}
               </div>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTaskToDelete(inspectTask)}
+                  className="px-3 py-1.5 bg-[#451b16]/30 hover:bg-[#451b16]/50 text-[#e57373] border border-rose-500/20 rounded-lg text-xs font-semibold transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>ลบงานนี้</span>
+                </button>
                 <button
                   onClick={() => {
                     const t = inspectTask;
-                    setInspectTask(null);
+                    setInspectTaskId(null);
                     onEditTask(t);
                   }}
-                  className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 bg-sky-500 hover:bg-sky-400 text-slate-100 rounded-lg text-xs font-bold transition-colors cursor-pointer"
                 >
                   แก้ไขงานนี้
                 </button>
                 <button
-                  onClick={() => setInspectTask(null)}
+                  onClick={() => setInspectTaskId(null)}
                   className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-xs font-medium transition-colors cursor-pointer"
                 >
                   ปิด
@@ -671,6 +844,40 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* In-App Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!taskToDelete}
+        onClose={() => setTaskToDelete(null)}
+        onConfirm={() => {
+          if (taskToDelete) {
+            onDeleteTask(taskToDelete.id);
+            if (inspectTaskId === taskToDelete.id) {
+              setInspectTaskId(null);
+            }
+            setTaskToDelete(null);
+          }
+        }}
+        title="ยืนยันการลบภารกิจ"
+        message="คุณต้องการลบภารกิจนี้ออกจากระบบใช่หรือไม่? ข้อมูลการติดตามและผลการดำเนินงานของภารกิจนี้จะถูกลบออกถาวร"
+        itemTitle={taskToDelete?.title}
+        itemSubtitle={taskToDelete ? `ผู้รับผิดชอบ: ${taskToDelete.assignee} • กำหนดส่ง: ${taskToDelete.dueDate}` : undefined}
+        confirmLabel="ยืนยันการลบภารกิจ"
+        cancelLabel="ยกเลิก"
+        variant="danger"
+      />
+
+      {/* CSV Import / Save Updated File Modal */}
+      {onSaveImportedTasks && (
+        <CsvImportModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          currentTasks={tasks}
+          onSaveTasks={(updatedTasks, updatedCount, newCount) => {
+            onSaveImportedTasks(updatedTasks, updatedCount, newCount);
+          }}
+        />
       )}
     </div>
   );

@@ -6,7 +6,9 @@ import {
   Plus, 
   Calendar,
   RotateCcw,
-  Printer
+  Printer,
+  Download,
+  Upload
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -14,6 +16,8 @@ interface NavbarProps {
   onTabChange: (tab: 'dashboard' | 'tasks' | 'monthly_report') => void;
   onAddTask: () => void;
   onResetData: () => void;
+  onExportCSV: () => void;
+  onImportCSV?: () => void;
   totalTasks: number;
 }
 
@@ -22,6 +26,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onTabChange,
   onAddTask,
   onResetData,
+  onExportCSV,
+  onImportCSV,
   totalTasks,
 }) => {
   return (
@@ -29,28 +35,55 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Logo & Title */}
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold shadow-md shadow-amber-500/20">
-              <span className="text-xl font-black">W</span>
+          <div className="flex items-center space-x-3 sm:space-x-4">
+            <div className="h-10 sm:h-12 flex items-center justify-center shrink-0">
+              <img
+                src="/logo-Nu-logistics-01.png"
+                alt="ตราสัญลักษณ์ คณะโลจิสติกส์และดิจิทัลซัพพลายเชน มหาวิทยาลัยนเรศวร"
+                className="h-10 sm:h-12 w-auto object-contain drop-shadow-md"
+                referrerPolicy="no-referrer"
+              />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">
-                  ระบบติดตามงาน <span className="text-amber-500 font-medium text-sm sm:text-base">(Work Tracking System)</span>
+                <h1 className="text-lg sm:text-xl font-bold text-slate-100 tracking-tight">
+                  ระบบติดตามงาน <span className="text-sky-400 font-medium text-sm sm:text-base">(Work Tracking System)</span>
                 </h1>
-                <span className="hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <span className="hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20">
                   ปีงบประมาณ 2570
                 </span>
               </div>
               <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
                 <Calendar className="w-3.5 h-3.5 text-slate-500 inline" />
-                ประจำเดือน ตุลาคม 2569 – กันยายน 2570 • ({totalTasks} ภารกิจในระบบ)
+                คณะโลจิสติกส์และดิจิทัลซัพพลายเชน มหาวิทยาลัยนเรศวร • ({totalTasks} ภารกิจในระบบ)
               </p>
             </div>
           </div>
 
           {/* Quick Actions */}
           <div className="flex items-center space-x-2 sm:space-x-3">
+            <button
+              id="export-csv-nav-btn"
+              onClick={onExportCSV}
+              title={`ส่งออกทะเบียนติดตามงาน (ทั้งหมด ${totalTasks} ภารกิจ) เป็นไฟล์ Excel / CSV`}
+              className="p-2 text-slate-300 hover:text-sky-300 bg-slate-800/80 hover:bg-slate-700/80 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-700 cursor-pointer"
+            >
+              <Download className="w-4 h-4 text-sky-400" />
+              <span className="hidden sm:inline">ส่งออก CSV ({totalTasks})</span>
+            </button>
+
+            {onImportCSV && (
+              <button
+                id="import-csv-nav-btn"
+                onClick={onImportCSV}
+                title="นำเข้าและบันทึกข้อมูลจากไฟล์ CSV ที่ปรับปรุงแล้ว"
+                className="p-2 text-slate-300 hover:text-emerald-300 bg-slate-800/80 hover:bg-slate-700/80 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-700 cursor-pointer"
+              >
+                <Upload className="w-4 h-4 text-emerald-400" />
+                <span className="hidden md:inline">นำเข้า CSV</span>
+              </button>
+            )}
+
             <button
               id="reset-data-btn"
               onClick={onResetData}
@@ -65,7 +98,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               id="print-btn"
               onClick={() => window.print()}
               title="พิมพ์หน้านี้ / บันทึกเป็น PDF"
-              className="p-2 text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-slate-700"
+              className="p-2 text-slate-300 hover:text-slate-100 bg-slate-800/80 hover:bg-slate-700/80 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-slate-700"
             >
               <Printer className="w-4 h-4" />
               <span className="hidden sm:inline">พิมพ์รายงาน</span>
@@ -74,7 +107,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               id="add-task-top-btn"
               onClick={onAddTask}
-              className="inline-flex items-center justify-center px-3.5 py-2 rounded-lg text-sm font-semibold text-slate-950 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 transition-colors shadow-md shadow-amber-500/20 gap-1.5 cursor-pointer"
+              className="inline-flex items-center justify-center px-3.5 py-2 rounded-lg text-sm font-semibold text-slate-100 bg-sky-500 hover:bg-sky-400 active:bg-sky-600 transition-colors shadow-md shadow-sky-500/25 gap-1.5 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>เพิ่มงานใหม่</span>
@@ -89,7 +122,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => onTabChange('dashboard')}
             className={`flex items-center gap-2 py-3 px-3 sm:px-4 text-sm font-medium border-b-2 whitespace-nowrap transition-colors cursor-pointer ${
               currentTab === 'dashboard'
-                ? 'border-amber-500 text-amber-400 font-semibold bg-amber-500/5'
+                ? 'border-sky-500 text-sky-400 font-semibold bg-sky-500/10'
                 : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
             }`}
           >
@@ -102,14 +135,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => onTabChange('tasks')}
             className={`flex items-center gap-2 py-3 px-3 sm:px-4 text-sm font-medium border-b-2 whitespace-nowrap transition-colors cursor-pointer ${
               currentTab === 'tasks'
-                ? 'border-amber-500 text-amber-400 font-semibold bg-amber-500/5'
+                ? 'border-sky-500 text-sky-400 font-semibold bg-sky-500/10'
                 : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
             }`}
           >
             <CheckSquare className="w-4 h-4" />
             <span>ทะเบียนติดตามงาน (ทั้งหมด)</span>
             <span className={`ml-1 px-1.5 py-0.2 rounded-full text-xs ${
-              currentTab === 'tasks' ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-400'
+              currentTab === 'tasks' ? 'bg-sky-500/20 text-sky-300' : 'bg-slate-800 text-slate-400'
             }`}>
               {totalTasks}
             </span>
@@ -120,7 +153,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => onTabChange('monthly_report')}
             className={`flex items-center gap-2 py-3 px-3 sm:px-4 text-sm font-medium border-b-2 whitespace-nowrap transition-colors cursor-pointer ${
               currentTab === 'monthly_report'
-                ? 'border-amber-500 text-amber-400 font-semibold bg-amber-500/5'
+                ? 'border-sky-500 text-sky-400 font-semibold bg-sky-500/10'
                 : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
             }`}
           >

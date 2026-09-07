@@ -35,6 +35,14 @@ import {
   loadCurrentUserId,
   saveCurrentUserId
 } from './utils/storage';
+import {
+  fetchServerData,
+  syncSaveTasks,
+  syncSaveSummaries,
+  syncSaveSharedUsers,
+  syncResetData,
+} from './utils/api';
+import { syncAllSummariesForTasks } from './utils/summarySync';
 import { exportTasksToCSV } from './utils/exportCsv';
 import { CheckCircle, AlertCircle, Building, Calendar, Layers } from 'lucide-react';
 
@@ -53,9 +61,11 @@ export default function App() {
   const [currentRole, setCurrentRole] = useState<UserRole>('editor');
   const [sharedUsers, setSharedUsers] = useState<SharedUser[]>([]);
   const [activeUser, setActiveUser] = useState<SharedUser | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Initialize data on mount and process query parameters (?role=..., ?user=...)
   useEffect(() => {
+    // 1. Initial fast load from local cache
     const loadedTasks = loadTasksFromStorage();
     const loadedSummaries = loadSummariesFromStorage();
     const users = loadSharedUsers();
@@ -63,6 +73,16 @@ export default function App() {
     setSummaries(loadedSummaries);
     setSharedUsers(users);
 
+    // 2. Fetch authoritative cloud/server data so Owner and Viewer always match
+    fetchServerData().then((serverData) => {
+      if (serverData) {
+        setTasks(serverData.tasks);
+        setSummaries(serverData.summaries);
+        setSharedUsers(serverData.sharedUsers);
+      }
+    });
+
+    // 3. Process URL query parameters for role & user
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const urlRole = params.get('role');
@@ -98,15 +118,52 @@ export default function App() {
     }
   }, []);
 
+  // Background polling every 2.5 seconds to sync data between Owner/Editor and Viewer across devices/tabs
+  useEffect(() => {
+    const syncInterval = setInterval(async () => {
+      try {
+        const serverData = await fetchServerData();
+        if (serverData) {
+          setTasks((prev) => {
+            if (JSON.stringify(prev) !== JSON.stringify(serverData.tasks)) {
+              return serverData.tasks;
+            }
+            return prev;
+          });
+          setSummaries((prev) => {
+            if (JSON.stringify(prev) !== JSON.stringify(serverData.summaries)) {
+              return serverData.summaries;
+            }
+            return prev;
+          });
+          setSharedUsers((prev) => {
+            if (JSON.stringify(prev) !== JSON.stringify(serverData.sharedUsers)) {
+              return serverData.sharedUsers;
+            }
+            return prev;
+          });
+        }
+      } catch (err) {
+        // Silently skip if temporary network disconnect
+      }
+    }, 2500);
+
+    return () => clearInterval(syncInterval);
+  }, []);
+
   const [filterResetCount, setFilterResetCount] = useState(0);
 
   // Sync state when localStorage changes in other tabs or through storage events
   useEffect(() => {
-    const handleSync = () => {
+    const handleSync = (e: any) => {
       setTasks(loadTasksFromStorage());
       setSummaries(loadSummariesFromStorage());
-      setCurrentRole(loadUserRole());
       setSharedUsers(loadSharedUsers());
+      // Only change active role if the event is specifically for USER_ROLE_STORAGE_KEY
+      const isRoleEvent = e?.detail?.key === 'work_tracking_system_user_role' || e?.key === 'work_tracking_system_user_role';
+      if (isRoleEvent) {
+        setCurrentRole(loadUserRole());
+      }
     };
     window.addEventListener('storage', handleSync);
     window.addEventListener('app-storage-sync', handleSync);
@@ -130,7 +187,7 @@ export default function App() {
 
   const handleSaveSharedUsers = (updatedUsers: SharedUser[]) => {
     setSharedUsers(updatedUsers);
-    saveSharedUsers(updatedUsers);
+    syncSaveSharedUsers(updatedUsers);
   };
 
   const [taskModalInitialDiv, setTaskModalInitialDiv] = useState<DivisionId | undefined>(undefined);
@@ -154,14 +211,26 @@ export default function App() {
     setIsTaskModalOpen(true);
   };
 
-  const handleSyncAllData = () => {
-    const latestTasks = loadTasksFromStorage();
-    const latestSummaries = loadSummariesFromStorage();
-    setTasks(latestTasks);
-    setSummaries(latestSummaries);
-    setSelectedDivisionInitial('all');
-    setFilterResetCount((prev) => prev + 1);
-    showToast(`ซิงค์ข้อมูลทะเบียนติดตามงานทั้งหมดเรียบร้อยแล้ว (${latestTasks.length} รายการ)`);
+  const handleSyncAllData = async () => {
+    setIsSyncing(true);
+    const serverData = await fetchServerData();
+    setIsSyncing(false);
+    if (serverData) {
+      setTasks(serverData.tasks);
+      setSummaries(serverData.summaries);
+      setSharedUsers(serverData.sharedUsers);
+      setSelectedDivisionInitial('all');
+      setFilterResetCount((prev) => prev + 1);
+      showToast(`ซิงค์ข้อมูลตรงกับเซิร์ฟเวอร์เรียบร้อยแล้ว (${serverData.tasks.length} ภารกิจ)`);
+    } else {
+      const latestTasks = loadTasksFromStorage();
+      const latestSummaries = loadSummariesFromStorage();
+      setTasks(latestTasks);
+      setSummaries(latestSummaries);
+      setSelectedDivisionInitial('all');
+      setFilterResetCount((prev) => prev + 1);
+      showToast(`ข้อมูลพร้อมใช้งาน (${latestTasks.length} ภารกิจ)`);
+    }
   };
 
   const handleSaveTask = (savedTask: WorkTask) => {
@@ -178,8 +247,11 @@ export default function App() {
       updated = [savedTask, ...tasks];
       showToast(`เพิ่มภารกิจใหม่ "${savedTask.title}" เรียบร้อยแล้ว`);
     }
+    const updatedSummaries = syncAllSummariesForTasks(updated, summaries);
     setTasks(updated);
-    saveTasksToStorage(updated);
+    setSummaries(updatedSummaries);
+    syncSaveTasks(updated);
+    syncSaveSummaries(updatedSummaries);
   };
 
   const handleDeleteTask = (taskId: string) => {
@@ -189,8 +261,11 @@ export default function App() {
     }
     const target = tasks.find((t) => t.id === taskId);
     const updated = tasks.filter((t) => t.id !== taskId);
+    const updatedSummaries = syncAllSummariesForTasks(updated, summaries);
     setTasks(updated);
-    saveTasksToStorage(updated);
+    setSummaries(updatedSummaries);
+    syncSaveTasks(updated);
+    syncSaveSummaries(updatedSummaries);
     showToast(`ลบรายการ "${target?.title || 'ภารกิจ'}" แล้ว`);
   };
 
@@ -215,9 +290,12 @@ export default function App() {
       }
       return t;
     });
+    const updatedSummaries = syncAllSummariesForTasks(updated, summaries);
     setTasks(updated);
-    saveTasksToStorage(updated);
-    showToast(`อัปเดตสถานะงานเรียบร้อยแล้ว`);
+    setSummaries(updatedSummaries);
+    syncSaveTasks(updated);
+    syncSaveSummaries(updatedSummaries);
+    showToast(`อัปเดตสถานะงานและซิงค์รายงานสรุปเรียบร้อยแล้ว`);
   };
 
   const handleSaveSummary = (summary: MonthlyDivisionSummary) => {
@@ -236,7 +314,7 @@ export default function App() {
       updated = [...summaries, summary];
     }
     setSummaries(updated);
-    saveSummariesToStorage(updated);
+    syncSaveSummaries(updated);
     showToast(`บันทึกรายงานสรุปผลการดำเนินงานเรียบร้อยแล้ว`);
   };
 
@@ -253,15 +331,25 @@ export default function App() {
       showToast('ไม่สามารถนำเข้าข้อมูลได้เนื่องจากคุณอยู่ในสิทธิ์ Viewer');
       return;
     }
+    const updatedSummaries = syncAllSummariesForTasks(updatedTasks, summaries);
     setTasks(updatedTasks);
-    saveTasksToStorage(updatedTasks);
-    showToast(`บันทึกข้อมูลจากไฟล์ CSV สำเร็จ: ปรับปรุง ${updatedCount} รายการ, เพิ่มใหม่ ${newCount} รายการ (รวม ${updatedTasks.length} รายการ)`);
+    setSummaries(updatedSummaries);
+    syncSaveTasks(updatedTasks);
+    syncSaveSummaries(updatedSummaries);
+    showToast(`บันทึกข้อมูลจากไฟล์ CSV สำเร็จ: ปรับปรุง ${updatedCount} รายการ, เพิ่มใหม่ ${newCount} รายการ (รวม ${updatedTasks.length} รายการ) และซิงค์สรุปผลประจำเดือนแล้ว`);
   };
 
-  const handleConfirmReset = () => {
-    const res = resetToDefaults();
-    setTasks(res.tasks);
-    setSummaries(res.summaries);
+  const handleConfirmReset = async () => {
+    const res = await syncResetData();
+    if (res) {
+      setTasks(res.tasks);
+      setSummaries(res.summaries);
+      setSharedUsers(res.sharedUsers);
+    } else {
+      const localRes = resetToDefaults();
+      setTasks(localRes.tasks);
+      setSummaries(localRes.summaries);
+    }
     setIsConfirmResetOpen(false);
     showToast('รีเซ็ตข้อมูลระบบกลับเป็นข้อมูลเริ่มต้นเรียบร้อยแล้ว');
   };
@@ -338,6 +426,8 @@ export default function App() {
           currentRole={currentRole}
           activeUser={activeUser}
           onOpenShare={() => setIsShareModalOpen(true)}
+          onSyncData={handleSyncAllData}
+          isSyncing={isSyncing}
         />
       </div>
 

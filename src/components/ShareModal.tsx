@@ -55,15 +55,19 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  const [domainMode, setDomainMode] = useState<'live' | 'public'>('live');
+
   if (!isOpen) return null;
 
-  // Generate shareable URLs using the public Preview domain so any external user can access
+  // Generate shareable URLs:
+  // - 'live': uses current window.location.origin (guaranteed real-time sync with this backend server)
+  // - 'public': replaces ais-dev- with ais-pre- for public deployment domain
   const getShareUrl = (role: UserRole, userId?: string) => {
     if (typeof window === 'undefined') return '';
     let origin = window.location.origin;
-    // CRITICAL: In Google AI Studio, ais-dev- is a private container URL that only the developer can open.
-    // We MUST replace 'ais-dev-' with 'ais-pre-' to generate the public shared URL that anyone can open!
-    origin = origin.replace('ais-dev-', 'ais-pre-');
+    if (domainMode === 'public') {
+      origin = origin.replace('ais-dev-', 'ais-pre-');
+    }
     const pathname = window.location.pathname;
     let url = `${origin}${pathname}?role=${role}`;
     if (userId) {
@@ -261,23 +265,53 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
           {/* Share Links by Role Section */}
           <div className="space-y-3.5">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Share2 className="w-3.5 h-3.5 text-sky-400" />
                 ลิงก์แชร์ระบบพร้อมกำหนดสิทธิ์ (Share Links)
               </h3>
-              <span className="text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-medium">
-                โดเมนสาธารณะ (Public URL)
-              </span>
+              
+              {/* Domain Mode Selector */}
+              <div className="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700 text-xs self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setDomainMode('live')}
+                  className={`px-2.5 py-1 rounded-md transition-all font-medium flex items-center gap-1 cursor-pointer ${
+                    domainMode === 'live'
+                      ? 'bg-sky-500 text-white font-semibold shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="ลิงก์ระบบสด ซิงค์ฐานข้อมูลกลางทันทีทุกอุปกรณ์"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <span>ลิงก์ระบบสด (Live Sync)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDomainMode('public')}
+                  className={`px-2.5 py-1 rounded-md transition-all font-medium flex items-center gap-1 cursor-pointer ${
+                    domainMode === 'public'
+                      ? 'bg-sky-500 text-white font-semibold shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="ลิงก์โดเมนสาธารณะ ais-pre- สำหรับบุคคลภายนอก"
+                >
+                  <span>โดเมน Public (ais-pre)</span>
+                </button>
+              </div>
             </div>
 
             {/* Public Domain Info Banner */}
             <div className="bg-sky-500/10 border border-sky-500/25 rounded-xl p-3 flex items-start gap-2.5 text-xs text-sky-200">
               <Info className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
               <div>
-                <span className="font-semibold text-sky-300">ลิงก์สาธารณะพร้อมแชร์ภายนอก:</span>
+                <span className="font-semibold text-sky-300">
+                  {domainMode === 'live' ? 'ลิงก์ระบบสดพร้อมซิงค์ข้อมูลเรียลไทม์ (Live Sync):' : 'ลิงก์โดเมนสาธารณะ (Public URL):'}
+                </span>
                 <p className="text-slate-300 mt-0.5 leading-relaxed">
-                  ระบบได้ปรับปรุง URL เป็นโดเมนสาธารณะ (<code className="text-sky-300 bg-sky-950/60 px-1 py-0.5 rounded font-mono text-[11px]">ais-pre-...</code>) ให้อัตโนมัติ เพื่อให้ผู้รับ (ทั้งผู้บริหารและผู้ปฏิบัติงาน) สามารถเปิดดูและใช้งานได้ทันทีบนคอมพิวเตอร์ แท็บเล็ต หรือสมาร์ทโฟนทุกเครื่อง โดยไม่ติดปัญหาแจ้งเตือนสิทธิ์
+                  {domainMode === 'live'
+                    ? 'ลิงก์นี้เชื่อมต่อกับฐานข้อมูลเซิร์ฟเวอร์โดยตรง ไม่ว่าเปิดด้วยแท็บผู้ดูแล (Owner/Editor) หรือผู้ชม (Viewer) ข้อมูลจะตรงกันแบบเรียลไทม์ทันที'
+                    : 'ระบบสร้าง URL บนโดเมนสาธารณะ (ais-pre-...) สำหรับส่งให้ผู้บริหารหรือบุคคลภายนอกเปิดดู'}
                 </p>
               </div>
             </div>

@@ -11,7 +11,8 @@ import {
   Upload,
   Share2,
   Eye,
-  Unlock
+  Unlock,
+  RefreshCw
 } from 'lucide-react';
 import { UserRole, SharedUser } from '../types';
 
@@ -23,6 +24,8 @@ interface NavbarProps {
   onExportCSV: () => void;
   onImportCSV?: () => void;
   onOpenShare: () => void;
+  onSyncData?: () => void;
+  isSyncing?: boolean;
   currentRole: UserRole;
   activeUser?: SharedUser | null;
   totalTasks: number;
@@ -36,6 +39,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onExportCSV,
   onImportCSV,
   onOpenShare,
+  onSyncData,
+  isSyncing = false,
   currentRole,
   activeUser,
   totalTasks,
@@ -101,6 +106,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {currentRole === 'editor' ? 'Editor' : 'Viewer'}
               </span>
             </button>
+
+            {/* Realtime Cloud Sync Button */}
+            {onSyncData && (
+              <button
+                id="sync-status-btn"
+                onClick={onSyncData}
+                title="คลิกเพื่อรีเฟรชและซิงค์ข้อมูลล่าสุดกับเซิร์ฟเวอร์แบบเรียลไทม์"
+                className="p-2 sm:px-2.5 sm:py-2 text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-700 hover:border-emerald-500/50 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span className="hidden md:inline text-[11px] text-emerald-400 font-medium">
+                  {isSyncing ? 'กำลังซิงค์...' : 'ซิงค์ตรงกัน'}
+                </span>
+              </button>
+            )}
 
             <button
               id="export-csv-nav-btn"

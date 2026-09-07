@@ -67,6 +67,7 @@ export interface MonthlyDivisionSummary {
   nextPlan: string; // แผนงานและข้อเสนอแนะในเดือนถัดไป
   reporter: string; // ผู้รายงาน
   reportedDate: string;
+  isCustomEdited?: boolean; // True if an editor manually typed and saved custom notes
 }
 
 export const DIVISIONS_DATA: DivisionInfo[] = [

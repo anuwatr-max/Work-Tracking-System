@@ -57,6 +57,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
   const [editingDivision, setEditingDivision] = useState<DivisionId | null>(null);
   const [inspectingTask, setInspectingTask] = useState<WorkTask | null>(null);
   const [isSyncingAll, setIsSyncingAll] = useState(false);
+  const [isLiveSyncMode, setIsLiveSyncMode] = useState<boolean>(true);
   const [editForm, setEditForm] = useState<{
     summaryText: string;
     achievements: string;
@@ -99,7 +100,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
       const existing = summaries.find(
         (s) => s.monthId === activeMonthId && s.divisionId === div.id
       );
-      const synced = buildSyncedSummary(activeMonthId, div.id, tasks, existing);
+      const synced = buildSyncedSummary(activeMonthId, div.id, tasks, existing, true);
       onSaveSummary(synced);
       count++;
     });
@@ -116,7 +117,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
     const existing = summaries.find(
       (s) => s.monthId === activeMonthId && s.divisionId === divId
     );
-    const synced = buildSyncedSummary(activeMonthId, divId, tasks, existing);
+    const synced = buildSyncedSummary(activeMonthId, divId, tasks, existing, true);
     onSaveSummary(synced);
     onShowToast?.(`ซิงค์สรุปผลงานของ "${divInfo?.name}" จากทะเบียนงานเรียบร้อยแล้ว`);
   };
@@ -170,6 +171,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
       nextPlan: editForm.nextPlan,
       reporter: editForm.reporter,
       reportedDate: new Date().toISOString().split('T')[0],
+      isCustomEdited: true,
     };
 
     onSaveSummary(updated);
@@ -285,6 +287,48 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
         </div>
       </div>
 
+      {/* Live Dynamic Sync Status Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-800/90 border border-slate-700 rounded-xl px-4 py-3 text-xs sm:text-sm shadow-xs">
+        <div className="flex items-center gap-2">
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+            isLiveSyncMode 
+              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
+              : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+          }`}>
+            <span className={`w-2 h-2 rounded-full ${isLiveSyncMode ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+            {isLiveSyncMode ? 'โหมดซิงค์ผลงานสดจากทะเบียนงาน (Live Dynamic Sync)' : 'โหมดแสดงบันทึกฉบับปรับแต่ง (Custom Draft)'}
+          </span>
+          <span className="text-slate-400 hidden md:inline">
+            {isLiveSyncMode 
+              ? 'สรุปผลภาพรวม ผลงานเด่น และปัญหาจะอัปเดตตรงกับทะเบียนงานแบบเรียลไทม์เสมอทุกครั้งที่มีการแก้ไข' 
+              : 'แสดงข้อความสรุปตามที่มีการบันทึกปรับแต่งเฉพาะกิจ'}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsLiveSyncMode(true)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              isLiveSyncMode 
+                ? 'bg-sky-500 text-slate-100 shadow-sm' 
+                : 'bg-slate-700/60 text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+            }`}
+          >
+            ⚡ ซิงค์สดตามทะเบียนงาน (แนะนำ)
+          </button>
+          <button
+            onClick={() => setIsLiveSyncMode(false)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              !isLiveSyncMode 
+                ? 'bg-sky-500 text-slate-100 shadow-sm' 
+                : 'bg-slate-700/60 text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+            }`}
+          >
+            📝 ฉบับบันทึกปรับแต่ง
+          </button>
+        </div>
+      </div>
+
       {/* 4 Divisions Monthly Reports */}
       <div className="space-y-6">
         {DIVISIONS_DATA.map((division) => {
@@ -298,6 +342,18 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
             (s) => s.monthId === activeMonthId && s.divisionId === division.id
           );
 
+          // Compute LIVE compiled summary dynamically directly from latest tasks
+          const liveCompiled = compileSummaryFromTasks(activeMonthId, division.id, tasks, summary);
+
+          const effectiveSummary = (isLiveSyncMode || !summary?.isCustomEdited) 
+            ? liveCompiled 
+            : {
+                summaryText: summary?.summaryText || liveCompiled.summaryText,
+                achievements: summary?.achievements || liveCompiled.achievements,
+                obstacles: summary?.obstacles || liveCompiled.obstacles,
+                nextPlan: summary?.nextPlan || liveCompiled.nextPlan,
+              };
+
           return (
             <div 
               key={division.id}
@@ -310,9 +366,19 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
                     {division.code}
                   </span>
                   <div>
-                    <h3 className="font-bold text-slate-100 text-base sm:text-lg flex items-center gap-2">
-                      {division.name}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-slate-100 text-base sm:text-lg flex items-center gap-2">
+                        {division.name}
+                      </h3>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${
+                        isLiveSyncMode 
+                          ? 'bg-emerald-950/50 text-emerald-300 border border-emerald-500/30' 
+                          : 'bg-slate-700 text-slate-300'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${isLiveSyncMode ? 'bg-emerald-400' : 'bg-slate-400'}`} />
+                        {isLiveSyncMode ? 'ซิงค์สดจากทะเบียนงาน' : 'ฉบับปรับแต่ง'}
+                      </span>
+                    </div>
                     <p className="text-xs text-slate-400">
                       ประกอบด้วย {division.units.map((u) => u.name).join(', ')}
                     </p>
@@ -378,7 +444,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
                     )}
                   </div>
                   <p className="text-slate-200 bg-slate-800/60 p-3.5 rounded-lg leading-relaxed border border-slate-700/60 whitespace-pre-line">
-                    {summary?.summaryText || (
+                    {effectiveSummary.summaryText || (
                       <span className="text-slate-500 italic">
                         ยังไม่ได้บันทึกบทสรุปผลการดำเนินงานประจำเดือนนี้ คลิกปุ่ม "ซิงค์จากงานในทะเบียน" เพื่อสร้างบทสรุปอัตโนมัติ หรือคลิก "แก้ไขรายงานสรุป"
                       </span>
@@ -395,7 +461,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
                       ผลงานสำคัญ / ความสำเร็จเด่น (Key Achievements)
                     </h4>
                     <div className="text-slate-200 bg-emerald-950/20 p-3.5 rounded-lg leading-relaxed border border-emerald-500/30 min-h-20 whitespace-pre-line">
-                      {summary?.achievements || (
+                      {effectiveSummary.achievements || (
                         <span className="text-slate-500 italic">ยังไม่ได้ระบุผลงานเด่น (สามารถกดปุ่มซิงค์เพื่อรวบรวมงานที่เสร็จสิ้นอัตโนมัติ)</span>
                       )}
                     </div>
@@ -408,7 +474,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
                       ปัญหา อุปสรรค และแนวทางแก้ไข (Issues & Solutions)
                     </h4>
                     <div className="text-slate-200 bg-[#451b16]/20 p-3.5 rounded-lg leading-relaxed border border-rose-500/20 min-h-20 whitespace-pre-line">
-                      {summary?.obstacles || (
+                      {effectiveSummary.obstacles || (
                         <span className="text-slate-500 italic">ไม่มีปัญหาหรืออุปสรรคที่ต้องรายงาน</span>
                       )}
                     </div>
@@ -422,7 +488,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
                     แผนงานสำคัญและข้อเสนอแนะในเดือนถัดไป (Next Steps)
                   </h4>
                   <div className="text-slate-200 bg-sky-950/20 p-3.5 rounded-lg leading-relaxed border border-sky-500/30 whitespace-pre-line">
-                    {summary?.nextPlan || (
+                    {effectiveSummary.nextPlan || (
                       <span className="text-slate-500 italic">ยังไม่ได้ระบุแผนงานเดือนถัดไป</span>
                     )}
                   </div>

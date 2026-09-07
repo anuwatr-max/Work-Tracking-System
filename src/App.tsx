@@ -11,11 +11,14 @@ import { MonthlyReportView } from './components/MonthlyReportView';
 import { TaskModal } from './components/TaskModal';
 import { ConfirmModal } from './components/ConfirmModal';
 import { CsvImportModal } from './components/CsvImportModal';
+import { ShareModal } from './components/ShareModal';
 import { 
   WorkTask, 
   MonthlyDivisionSummary, 
   DivisionId, 
   TaskStatus,
+  UserRole,
+  SharedUser,
   DIVISIONS_DATA,
   FISCAL_MONTHS
 } from './types';
@@ -24,7 +27,11 @@ import {
   saveTasksToStorage, 
   loadSummariesFromStorage, 
   saveSummariesToStorage, 
-  resetToDefaults 
+  resetToDefaults,
+  loadUserRole,
+  saveUserRole,
+  loadSharedUsers,
+  saveSharedUsers
 } from './utils/storage';
 import { exportTasksToCSV } from './utils/exportCsv';
 import { CheckCircle, AlertCircle, Building, Calendar, Layers } from 'lucide-react';
@@ -40,13 +47,20 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isConfirmResetOpen, setIsConfirmResetOpen] = useState(false);
   const [isGlobalImportModalOpen, setIsGlobalImportModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [currentRole, setCurrentRole] = useState<UserRole>('editor');
+  const [sharedUsers, setSharedUsers] = useState<SharedUser[]>([]);
 
   // Initialize data on mount
   useEffect(() => {
     const loadedTasks = loadTasksFromStorage();
     const loadedSummaries = loadSummariesFromStorage();
+    const role = loadUserRole();
+    const users = loadSharedUsers();
     setTasks(loadedTasks);
     setSummaries(loadedSummaries);
+    setCurrentRole(role);
+    setSharedUsers(users);
   }, []);
 
   const [filterResetCount, setFilterResetCount] = useState(0);
@@ -56,6 +70,8 @@ export default function App() {
     const handleSync = () => {
       setTasks(loadTasksFromStorage());
       setSummaries(loadSummariesFromStorage());
+      setCurrentRole(loadUserRole());
+      setSharedUsers(loadSharedUsers());
     };
     window.addEventListener('storage', handleSync);
     window.addEventListener('app-storage-sync', handleSync);
@@ -72,8 +88,23 @@ export default function App() {
     }, 3000);
   };
 
+  const handleRoleChange = (newRole: UserRole) => {
+    setCurrentRole(newRole);
+    saveUserRole(newRole);
+  };
+
+  const handleSaveSharedUsers = (updatedUsers: SharedUser[]) => {
+    setSharedUsers(updatedUsers);
+    saveSharedUsers(updatedUsers);
+  };
+
   // Add / Edit Task
   const handleOpenAddTask = () => {
+    if (currentRole === 'viewer') {
+      showToast('คุณอยู่ในสิทธิ์ "Viewer (ผู้เข้าชม)" ไม่สามารถเพิ่มภารกิจได้ กรุณาสลับสิทธิ์เป็น Editor ในเมนูแชร์');
+      setIsShareModalOpen(true);
+      return;
+    }
     setTaskToEdit(null);
     setIsTaskModalOpen(true);
   };
@@ -94,6 +125,10 @@ export default function App() {
   };
 
   const handleSaveTask = (savedTask: WorkTask) => {
+    if (currentRole === 'viewer') {
+      showToast('ไม่สามารถบันทึกข้อมูลได้เนื่องจากคุณอยู่ในสิทธิ์ Viewer (อ่านอย่างเดียว)');
+      return;
+    }
     let updated: WorkTask[];
     const exists = tasks.some((t) => t.id === savedTask.id);
     if (exists) {
@@ -108,6 +143,10 @@ export default function App() {
   };
 
   const handleDeleteTask = (taskId: string) => {
+    if (currentRole === 'viewer') {
+      showToast('ไม่สามารถลบข้อมูลได้เนื่องจากคุณอยู่ในสิทธิ์ Viewer (อ่านอย่างเดียว)');
+      return;
+    }
     const target = tasks.find((t) => t.id === taskId);
     const updated = tasks.filter((t) => t.id !== taskId);
     setTasks(updated);
@@ -116,6 +155,10 @@ export default function App() {
   };
 
   const handleQuickStatusChange = (taskId: string, newStatus: TaskStatus) => {
+    if (currentRole === 'viewer') {
+      showToast('ไม่สามารถเปลี่ยนสถานะได้เนื่องจากคุณอยู่ในสิทธิ์ Viewer (อ่านอย่างเดียว)');
+      return;
+    }
     const updated = tasks.map((t) => {
       if (t.id === taskId) {
         let newProgress = t.progress;
@@ -138,6 +181,10 @@ export default function App() {
   };
 
   const handleSaveSummary = (summary: MonthlyDivisionSummary) => {
+    if (currentRole === 'viewer') {
+      showToast('ไม่สามารถบันทึกรายงานสรุปได้เนื่องจากคุณอยู่ในสิทธิ์ Viewer (อ่านอย่างเดียว)');
+      return;
+    }
     const existingIndex = summaries.findIndex(
       (s) => s.monthId === summary.monthId && s.divisionId === summary.divisionId
     );
@@ -154,10 +201,18 @@ export default function App() {
   };
 
   const handleResetData = () => {
+    if (currentRole === 'viewer') {
+      showToast('ไม่สามารถรีเซ็ตข้อมูลได้เนื่องจากคุณอยู่ในสิทธิ์ Viewer');
+      return;
+    }
     setIsConfirmResetOpen(true);
   };
 
   const handleImportTasks = (updatedTasks: WorkTask[], updatedCount: number, newCount: number) => {
+    if (currentRole === 'viewer') {
+      showToast('ไม่สามารถนำเข้าข้อมูลได้เนื่องจากคุณอยู่ในสิทธิ์ Viewer');
+      return;
+    }
     setTasks(updatedTasks);
     saveTasksToStorage(updatedTasks);
     showToast(`บันทึกข้อมูลจากไฟล์ CSV สำเร็จ: ปรับปรุง ${updatedCount} รายการ, เพิ่มใหม่ ${newCount} รายการ (รวม ${updatedTasks.length} รายการ)`);
@@ -240,6 +295,8 @@ export default function App() {
           onExportCSV={handleExportAllTasksCSV}
           onImportCSV={() => setIsGlobalImportModalOpen(true)}
           totalTasks={tasks.length}
+          currentRole={currentRole}
+          onOpenShare={() => setIsShareModalOpen(true)}
         />
       </div>
 
@@ -275,6 +332,8 @@ export default function App() {
             onSyncData={handleSyncAllData}
             onShowToast={showToast}
             onSaveImportedTasks={handleImportTasks}
+            currentRole={currentRole}
+            onOpenShare={() => setIsShareModalOpen(true)}
           />
         )}
 
@@ -286,6 +345,7 @@ export default function App() {
             onEditTask={handleOpenEditTask}
             onQuickStatusChange={handleQuickStatusChange}
             selectedMonthId={selectedMonthForReport}
+            currentRole={currentRole}
           />
         )}
       </main>
@@ -300,6 +360,7 @@ export default function App() {
         onSave={handleSaveTask}
         onDelete={handleDeleteTask}
         taskToEdit={taskToEdit}
+        isReadOnly={currentRole === 'viewer'}
       />
 
       {/* Reset System Confirmation Modal */}
@@ -320,6 +381,17 @@ export default function App() {
         onClose={() => setIsGlobalImportModalOpen(false)}
         currentTasks={tasks}
         onSaveTasks={handleImportTasks}
+      />
+
+      {/* Share / Role Permission Modal */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        currentRole={currentRole}
+        onRoleChange={handleRoleChange}
+        sharedUsers={sharedUsers}
+        onSaveSharedUsers={handleSaveSharedUsers}
+        onShowToast={showToast}
       />
 
       {/* Footer */}

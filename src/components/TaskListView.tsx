@@ -5,7 +5,8 @@ import {
   DivisionId, 
   DIVISIONS_DATA, 
   FISCAL_MONTHS, 
-  STATUS_CONFIG 
+  STATUS_CONFIG,
+  UserRole
 } from '../types';
 import { 
   Search, 
@@ -27,7 +28,9 @@ import {
   X,
   ChevronDown,
   FileSpreadsheet,
-  Upload
+  Upload,
+  ShieldAlert,
+  Share2
 } from 'lucide-react';
 import { ConfirmModal } from './ConfirmModal';
 import { CsvImportModal } from './CsvImportModal';
@@ -44,6 +47,8 @@ interface TaskListViewProps {
   onSyncData?: () => void;
   onShowToast?: (msg: string) => void;
   onSaveImportedTasks?: (updatedTasks: WorkTask[], updatedCount: number, newCount: number) => void;
+  currentRole?: UserRole;
+  onOpenShare?: () => void;
 }
 
 export const TaskListView: React.FC<TaskListViewProps> = ({
@@ -57,6 +62,8 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   onSyncData,
   onShowToast,
   onSaveImportedTasks,
+  currentRole = 'editor',
+  onOpenShare,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
@@ -274,8 +281,8 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                       </div>
                     </button>
 
-                    {/* Import / Save Updated CSV */}
-                    {onSaveImportedTasks && (
+                    {/* Import / Save Updated CSV (Editor Only) */}
+                    {currentRole === 'editor' && onSaveImportedTasks && (
                       <div className="pt-1 mt-1 border-t border-slate-800">
                         <button
                           id="import-updated-csv-option"
@@ -307,15 +314,49 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
               )}
             </div>
 
-            <button
-              onClick={onAddTask}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-100 bg-sky-500 rounded-lg hover:bg-sky-400 active:bg-sky-600 transition-colors shadow-md shadow-sky-500/25 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>เพิ่มงานใหม่</span>
-            </button>
+            {currentRole === 'editor' ? (
+              <button
+                id="task-list-add-task-btn"
+                onClick={onAddTask}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-100 bg-sky-500 rounded-lg hover:bg-sky-400 active:bg-sky-600 transition-colors shadow-md shadow-sky-500/25 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>เพิ่มงานใหม่</span>
+              </button>
+            ) : (
+              <button
+                id="task-list-viewer-mode-btn"
+                onClick={onOpenShare}
+                title="สิทธิ์ Viewer: ดูข้อมูลอย่างเดียว (คลิกเพื่อขอสิทธิ์หรือสลับเป็น Editor)"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-slate-300 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 rounded-lg transition-colors cursor-pointer"
+              >
+                <Eye className="w-4 h-4 text-sky-400" />
+                <span className="hidden sm:inline">สิทธิ์: ดูอย่างเดียว (Viewer)</span>
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Viewer Role Alert Banner */}
+        {currentRole === 'viewer' && (
+          <div className="p-3 bg-sky-950/30 border border-sky-500/30 rounded-xl flex items-center justify-between gap-3 text-xs text-sky-200">
+            <div className="flex items-center gap-2">
+              <Eye className="w-4 h-4 text-sky-400 shrink-0" />
+              <span>
+                กำลังดูข้อมูลในสิทธิ์ <strong>Viewer (ผู้เข้าชม)</strong> — สามารถตรวจสอบ ค้นหา และส่งออกข้อมูลได้ (ปุ่มแก้ไขและลบถูกปิดใช้งาน)
+              </span>
+            </div>
+            {onOpenShare && (
+              <button
+                onClick={onOpenShare}
+                className="px-2.5 py-1 bg-sky-600/80 hover:bg-sky-500 text-white rounded-lg font-semibold shrink-0 transition-colors cursor-pointer flex items-center gap-1"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>สลับเป็นสิทธิ์ Editor</span>
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Filter Controls Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 pt-2 border-t border-slate-700/60">
@@ -579,19 +620,25 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                         </div>
                       </td>
 
-                      {/* Status Dropdown Quick Change */}
+                      {/* Status Dropdown Quick Change (Editor) or Badge (Viewer) */}
                       <td className="px-3 py-3 whitespace-nowrap">
-                        <select
-                          value={task.status}
-                          onChange={(e) => onQuickStatusChange(task.id, e.target.value as TaskStatus)}
-                          className={`text-xs font-semibold rounded-lg px-2 py-1 border cursor-pointer ${statusConf.badgeClass} focus:outline-hidden bg-slate-800`}
-                        >
-                          <option value="completed">✓ เสร็จสิ้น</option>
-                          <option value="in_progress">▶ กำลังดำเนินการ</option>
-                          <option value="pending_review">⏳ รอตรวจ/รออนุมัติ</option>
-                          <option value="delayed">⚠️ ล่าช้ากว่ากำหนด</option>
-                          <option value="not_started">○ ยังไม่เริ่ม</option>
-                        </select>
+                        {currentRole === 'editor' ? (
+                          <select
+                            value={task.status}
+                            onChange={(e) => onQuickStatusChange(task.id, e.target.value as TaskStatus)}
+                            className={`text-xs font-semibold rounded-lg px-2 py-1 border cursor-pointer ${statusConf.badgeClass} focus:outline-hidden bg-slate-800`}
+                          >
+                            <option value="completed">✓ เสร็จสิ้น</option>
+                            <option value="in_progress">▶ กำลังดำเนินการ</option>
+                            <option value="pending_review">⏳ รอตรวจ/รออนุมัติ</option>
+                            <option value="delayed">⚠️ ล่าช้ากว่ากำหนด</option>
+                            <option value="not_started">○ ยังไม่เริ่ม</option>
+                          </select>
+                        ) : (
+                          <span className={`inline-flex text-xs font-semibold rounded-lg px-2.5 py-1 border ${statusConf.badgeClass}`}>
+                            {statusConf.label}
+                          </span>
+                        )}
                       </td>
 
                       {/* Actions */}
@@ -604,20 +651,24 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => onEditTask(task)}
-                            title="แก้ไขข้อมูลงาน"
-                            className="p-1.5 text-slate-400 hover:text-sky-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => setTaskToDelete(task)}
-                            title="ลบภารกิจ"
-                            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {currentRole === 'editor' && (
+                            <>
+                              <button
+                                onClick={() => onEditTask(task)}
+                                title="แก้ไขข้อมูลงาน"
+                                className="p-1.5 text-slate-400 hover:text-sky-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => setTaskToDelete(task)}
+                                title="ลบภารกิจ"
+                                className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -705,19 +756,30 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                     </span>
                     <div className="flex items-center space-x-1">
                       <button
-                        onClick={() => onEditTask(task)}
+                        onClick={() => setInspectTaskId(task.id)}
                         className="p-1 text-slate-400 hover:text-sky-400 rounded cursor-pointer"
-                        title="แก้ไข"
+                        title="ดูรายละเอียดงาน"
                       >
-                        <Edit3 className="w-4 h-4" />
+                        <Eye className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => setTaskToDelete(task)}
-                        className="p-1 text-slate-400 hover:text-rose-400 rounded cursor-pointer"
-                        title="ลบ"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {currentRole === 'editor' && (
+                        <>
+                          <button
+                            onClick={() => onEditTask(task)}
+                            className="p-1 text-slate-400 hover:text-sky-400 rounded cursor-pointer"
+                            title="แก้ไข"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setTaskToDelete(task)}
+                            className="p-1 text-slate-400 hover:text-rose-400 rounded cursor-pointer"
+                            title="ลบ"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

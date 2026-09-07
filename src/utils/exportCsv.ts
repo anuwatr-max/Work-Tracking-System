@@ -222,21 +222,22 @@ export function parseAndMergeTasksCSV(csvText: string, currentTasks: WorkTask[])
     return headers.findIndex((h) => names.some((n) => h.includes(n)));
   };
 
-  const idIdx = getColIdx(['รหัสภารกิจ', 'รหัส', 'ID', 'id']);
-  const titleIdx = getColIdx(['ชื่องาน', 'ภารกิจ', 'ชื่อโครงการ', 'title']);
-  const divIdx = getColIdx(['งานหลัก', 'division', 'กลุ่มงาน']);
-  const unitIdx = getColIdx(['หน่วยงานย่อย', 'หน่วยงาน', 'unit']);
-  const monthIdx = getColIdx(['ประจำเดือน', 'เดือน', 'month']);
-  const assigneeIdx = getColIdx(['ผู้รับผิดชอบ', 'assignee']);
-  const statusIdx = getColIdx(['สถานะ', 'status']);
-  const progressIdx = getColIdx(['ความก้าวหน้า', 'progress', '%']);
-  const startDateIdx = getColIdx(['วันที่เริ่ม', 'start']);
-  const dueDateIdx = getColIdx(['กำหนดส่ง', 'สิ้นสุด', 'due']);
-  const priorityIdx = getColIdx(['ระดับความสำคัญ', 'ความสำคัญ', 'priority']);
-  const budgetIdx = getColIdx(['งบประมาณ', 'budget']);
-  const descIdx = getColIdx(['รายละเอียด', 'เป้าหมาย', 'description']);
-  const outputIdx = getColIdx(['ผลการดำเนินงาน', 'ผลงาน', 'output']);
-  const issuesIdx = getColIdx(['ปัญหา', 'อุปสรรค', 'issues']);
+  const idIdx = headers.findIndex((h) => h.includes('รหัสภารกิจ') || (h.includes('รหัส') && !h.includes('งานหลัก')) || h.toLowerCase() === 'id');
+  const titleIdx = headers.findIndex((h) => h.includes('ชื่องาน') || (h.includes('ภารกิจ') && !h.includes('รหัส')) || h.includes('ชื่อโครงการ') || h.toLowerCase() === 'title');
+  const divIdx = headers.findIndex((h) => (h.includes('งานหลัก') && !h.includes('รหัส')) || h.toLowerCase().includes('division') || h.includes('กลุ่มงาน'));
+  const unitIdx = headers.findIndex((h) => h.includes('หน่วยงานย่อย') || (h.includes('หน่วยงาน') && !h.includes('งานหลัก')) || h.toLowerCase().includes('unit'));
+  const monthIdx = headers.findIndex((h) => h.includes('ประจำเดือน') || h.includes('เดือน') || h.toLowerCase().includes('month'));
+  const assigneeIdx = headers.findIndex((h) => h.includes('ผู้รับผิดชอบ') || h.toLowerCase().includes('assignee'));
+  const statusIdx = headers.findIndex((h) => h.includes('สถานะการดำเนินงาน') || h.includes('สถานะ') || h.toLowerCase().includes('status'));
+  const progressIdx = headers.findIndex((h) => h.includes('ความก้าวหน้า') || h.includes('%') || h.toLowerCase().includes('progress'));
+  const startDateIdx = headers.findIndex((h) => h.includes('วันที่เริ่มต้น') || h.includes('วันที่เริ่ม') || h.toLowerCase().includes('start'));
+  const dueDateIdx = headers.findIndex((h) => h.includes('กำหนดส่ง') || h.includes('สิ้นสุด') || h.toLowerCase().includes('due'));
+  const priorityIdx = headers.findIndex((h) => h.includes('ระดับความสำคัญ') || h.includes('ความสำคัญ') || h.toLowerCase().includes('priority'));
+  const budgetIdx = headers.findIndex((h) => h.includes('งบประมาณ') || h.toLowerCase().includes('budget'));
+  const descIdx = headers.findIndex((h) => h.includes('รายละเอียด') || h.includes('เป้าหมาย') || h.toLowerCase().includes('description'));
+  const outputIdx = headers.findIndex((h) => h.includes('ผลการดำเนินงาน') || h.includes('ผลงาน') || h.toLowerCase().includes('output'));
+  const issuesIdx = headers.findIndex((h) => h.includes('ปัญหา') || h.includes('อุปสรรค') || h.toLowerCase().includes('issues'));
+  const updatedAtIdx = headers.findIndex((h) => h.includes('วันที่ปรับปรุงข้อมูลล่าสุด') || h.includes('วันที่ปรับปรุง') || h.toLowerCase().includes('updatedat'));
 
   if (titleIdx === -1) {
     throw new Error('ไม่พบคอลัมน์ "ชื่องาน / ภารกิจ" ในไฟล์ CSV');
@@ -357,7 +358,7 @@ export function parseAndMergeTasksCSV(csvText: string, currentTasks: WorkTask[])
         description: descIdx >= 0 && row[descIdx] ? row[descIdx].trim() : targetTask.description,
         output: outputIdx >= 0 && row[outputIdx] ? row[outputIdx].trim() : targetTask.output,
         issues: issuesIdx >= 0 && row[issuesIdx] ? row[issuesIdx].trim() : targetTask.issues,
-        updatedAt: todayStr,
+        updatedAt: updatedAtIdx >= 0 && row[updatedAtIdx] ? row[updatedAtIdx].trim() : todayStr,
       };
       updatedTasksMap.set(targetTask.id, updatedItem);
       updatedCount++;
@@ -380,7 +381,7 @@ export function parseAndMergeTasksCSV(csvText: string, currentTasks: WorkTask[])
         description: descIdx >= 0 && row[descIdx] ? row[descIdx].trim() : 'นำเข้าจากไฟล์ CSV',
         output: outputIdx >= 0 && row[outputIdx] ? row[outputIdx].trim() : undefined,
         issues: issuesIdx >= 0 && row[issuesIdx] ? row[issuesIdx].trim() : undefined,
-        updatedAt: todayStr,
+        updatedAt: updatedAtIdx >= 0 && row[updatedAtIdx] ? row[updatedAtIdx].trim() : todayStr,
       };
       updatedTasksMap.set(newId, newItem);
       newCount++;

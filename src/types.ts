@@ -1,3 +1,14 @@
+export type UserRole = 'editor' | 'viewer';
+
+export interface SharedUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  division?: string;
+  addedAt: string;
+}
+
 export type DivisionId = 'admin' | 'academic' | 'research' | 'finance';
 
 export interface DivisionInfo {

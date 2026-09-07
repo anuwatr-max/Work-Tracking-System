@@ -8,8 +8,12 @@ import {
   RotateCcw,
   Printer,
   Download,
-  Upload
+  Upload,
+  Share2,
+  Eye,
+  Unlock
 } from 'lucide-react';
+import { UserRole } from '../types';
 
 interface NavbarProps {
   currentTab: 'dashboard' | 'tasks' | 'monthly_report';
@@ -18,6 +22,8 @@ interface NavbarProps {
   onResetData: () => void;
   onExportCSV: () => void;
   onImportCSV?: () => void;
+  onOpenShare: () => void;
+  currentRole: UserRole;
   totalTasks: number;
 }
 
@@ -28,6 +34,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onResetData,
   onExportCSV,
   onImportCSV,
+  onOpenShare,
+  currentRole,
   totalTasks,
 }) => {
   return (
@@ -61,7 +69,25 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Quick Actions */}
-          <div className="flex items-center space-x-2 sm:space-x-3">
+          <div className="flex items-center space-x-2 sm:space-x-2.5">
+            {/* Share & Role Management Button */}
+            <button
+              id="share-btn"
+              onClick={onOpenShare}
+              title="แชร์ระบบและจัดการสิทธิ์ผู้ใช้งาน (Editor / Viewer)"
+              className="px-2.5 sm:px-3 py-2 text-slate-200 hover:text-white bg-slate-800/90 hover:bg-slate-700/90 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 border border-slate-700 hover:border-sky-500/50 cursor-pointer shadow-sm"
+            >
+              <Share2 className="w-4 h-4 text-sky-400" />
+              <span className="hidden sm:inline">แชร์</span>
+              <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold uppercase tracking-wider ${
+                currentRole === 'editor'
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  : 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
+              }`}>
+                {currentRole === 'editor' ? 'Editor' : 'Viewer'}
+              </span>
+            </button>
+
             <button
               id="export-csv-nav-btn"
               onClick={onExportCSV}
@@ -69,10 +95,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="p-2 text-slate-300 hover:text-sky-300 bg-slate-800/80 hover:bg-slate-700/80 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-700 cursor-pointer"
             >
               <Download className="w-4 h-4 text-sky-400" />
-              <span className="hidden sm:inline">ส่งออก CSV ({totalTasks})</span>
+              <span className="hidden lg:inline">ส่งออก CSV</span>
             </button>
 
-            {onImportCSV && (
+            {currentRole === 'editor' && onImportCSV && (
               <button
                 id="import-csv-nav-btn"
                 onClick={onImportCSV}
@@ -80,38 +106,52 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="p-2 text-slate-300 hover:text-emerald-300 bg-slate-800/80 hover:bg-slate-700/80 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-700 cursor-pointer"
               >
                 <Upload className="w-4 h-4 text-emerald-400" />
-                <span className="hidden md:inline">นำเข้า CSV</span>
+                <span className="hidden lg:inline">นำเข้า CSV</span>
               </button>
             )}
 
-            <button
-              id="reset-data-btn"
-              onClick={onResetData}
-              title="รีเซ็ตเป็นข้อมูลตัวอย่างเริ่มต้น"
-              className="p-2 text-slate-400 hover:text-slate-200 bg-slate-800/80 hover:bg-slate-700/80 rounded-lg text-xs font-medium transition-colors hidden sm:flex items-center gap-1 border border-slate-700"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>รีเซ็ตข้อมูล</span>
-            </button>
+            {currentRole === 'editor' && (
+              <button
+                id="reset-data-btn"
+                onClick={onResetData}
+                title="รีเซ็ตเป็นข้อมูลตัวอย่างเริ่มต้น"
+                className="p-2 text-slate-400 hover:text-slate-200 bg-slate-800/80 hover:bg-slate-700/80 rounded-lg text-xs font-medium transition-colors hidden xl:flex items-center gap-1 border border-slate-700 cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>รีเซ็ต</span>
+              </button>
+            )}
 
             <button
               id="print-btn"
               onClick={() => window.print()}
               title="พิมพ์หน้านี้ / บันทึกเป็น PDF"
-              className="p-2 text-slate-300 hover:text-slate-100 bg-slate-800/80 hover:bg-slate-700/80 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-slate-700"
+              className="p-2 text-slate-300 hover:text-slate-100 bg-slate-800/80 hover:bg-slate-700/80 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-slate-700 cursor-pointer"
             >
               <Printer className="w-4 h-4" />
-              <span className="hidden sm:inline">พิมพ์รายงาน</span>
+              <span className="hidden md:inline">พิมพ์รายงาน</span>
             </button>
 
-            <button
-              id="add-task-top-btn"
-              onClick={onAddTask}
-              className="inline-flex items-center justify-center px-3.5 py-2 rounded-lg text-sm font-semibold text-slate-100 bg-sky-500 hover:bg-sky-400 active:bg-sky-600 transition-colors shadow-md shadow-sky-500/25 gap-1.5 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>เพิ่มงานใหม่</span>
-            </button>
+            {currentRole === 'editor' ? (
+              <button
+                id="add-task-top-btn"
+                onClick={onAddTask}
+                className="inline-flex items-center justify-center px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-100 bg-sky-500 hover:bg-sky-400 active:bg-sky-600 transition-colors shadow-md shadow-sky-500/25 gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>เพิ่มงานใหม่</span>
+              </button>
+            ) : (
+              <button
+                id="viewer-mode-badge-btn"
+                onClick={onOpenShare}
+                title="กำลังดูในโหมด Viewer (คลิกเพื่อขอสิทธิ์หรือสลับเป็น Editor)"
+                className="inline-flex items-center justify-center px-2.5 py-2 rounded-lg text-xs font-medium text-slate-400 bg-slate-800/60 border border-slate-700/80 hover:border-slate-600 transition-colors gap-1.5 cursor-pointer"
+              >
+                <Eye className="w-3.5 h-3.5 text-sky-400" />
+                <span className="hidden sm:inline">โหมดดูอย่างเดียว</span>
+              </button>
+            )}
           </div>
         </div>
 

@@ -5,7 +5,8 @@ import {
   DivisionId, 
   DIVISIONS_DATA, 
   FISCAL_MONTHS, 
-  STATUS_CONFIG 
+  STATUS_CONFIG,
+  UserRole
 } from '../types';
 import { 
   Calendar, 
@@ -27,6 +28,7 @@ interface MonthlyReportViewProps {
   summaries: MonthlyDivisionSummary[];
   onSaveSummary: (summary: MonthlyDivisionSummary) => void;
   selectedMonthId?: string;
+  currentRole?: UserRole;
 }
 
 export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
@@ -34,6 +36,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
   summaries,
   onSaveSummary,
   selectedMonthId = '2569-10',
+  currentRole = 'editor',
 }) => {
   const [activeMonthId, setActiveMonthId] = useState<string>(selectedMonthId);
   const [editingDivision, setEditingDivision] = useState<DivisionId | null>(null);
@@ -234,13 +237,15 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
                     <span className="text-slate-400">ความก้าวหน้าเดือนนี้: </span>
                     <span className="font-bold text-sky-400">{divCompleted}/{divTotal} งาน ({divRate}%)</span>
                   </div>
-                  <button
-                    onClick={() => handleStartEdit(division.id)}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-sky-400 hover:text-sky-300 bg-slate-800 border border-slate-700 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg transition-colors shadow-xs cursor-pointer"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    <span>แก้ไขรายงานสรุป</span>
-                  </button>
+                  {currentRole === 'editor' && (
+                    <button
+                      onClick={() => handleStartEdit(division.id)}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-sky-400 hover:text-sky-300 bg-slate-800 border border-slate-700 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg transition-colors shadow-xs cursor-pointer"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>แก้ไขรายงานสรุป</span>
+                    </button>
+                  )}
                 </div>
               </div>
 

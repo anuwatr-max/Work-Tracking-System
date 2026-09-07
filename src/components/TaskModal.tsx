@@ -16,6 +16,7 @@ interface TaskModalProps {
   onSave: (task: WorkTask) => void;
   onDelete?: (taskId: string) => void;
   taskToEdit?: WorkTask | null;
+  isReadOnly?: boolean;
 }
 
 export const TaskModal: React.FC<TaskModalProps> = ({
@@ -24,6 +25,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   onSave,
   onDelete,
   taskToEdit,
+  isReadOnly = false,
 }) => {
   const [title, setTitle] = useState('');
   const [divisionId, setDivisionId] = useState<DivisionId>('admin');
@@ -160,9 +162,20 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         </button>
 
         <div className="mb-4">
-          <h3 className="text-lg font-bold text-slate-100">
-            {taskToEdit ? 'แก้ไขข้อมูลภารกิจติดตามงาน' : 'เพิ่มรายการติดตามงานใหม่'}
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-bold text-slate-100">
+              {isReadOnly 
+                ? 'รายละเอียดภารกิจติดตามงาน' 
+                : taskToEdit 
+                  ? 'แก้ไขข้อมูลภารกิจติดตามงาน' 
+                  : 'เพิ่มรายการติดตามงานใหม่'}
+            </h3>
+            {isReadOnly && (
+              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                สิทธิ์ Viewer (อ่านอย่างเดียว)
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-400 mt-0.5">
             ประจำปีงบประมาณ 2570 (ตุลาคม 2569 – กันยายน 2570)
           </p>
@@ -399,7 +412,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
           {/* Modal Actions */}
           <div className="pt-4 border-t border-slate-700/60 flex items-center justify-between gap-3">
-            {taskToEdit && onDelete ? (
+            {isReadOnly ? (
+              <div className="text-xs text-slate-400">
+                สิทธิ์ Viewer: ดูรายละเอียดได้ (หากต้องการแก้ไขให้สลับสิทธิ์เป็น Editor)
+              </div>
+            ) : taskToEdit && onDelete ? (
               <button
                 type="button"
                 onClick={() => setIsConfirmDeleteOpen(true)}
@@ -416,17 +433,19 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg font-medium transition-colors cursor-pointer"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg font-medium transition-colors cursor-pointer text-xs sm:text-sm"
               >
-                ยกเลิก
+                {isReadOnly ? 'ปิดหน้าต่าง' : 'ยกเลิก'}
               </button>
-              <button
-                type="submit"
-                className="inline-flex items-center gap-1.5 px-5 py-2 bg-sky-500 hover:bg-sky-400 text-slate-100 font-bold rounded-lg transition-colors shadow-md shadow-sky-500/25 cursor-pointer"
-              >
-                <Save className="w-4 h-4" />
-                <span>{taskToEdit ? 'บันทึกการแก้ไข' : 'บันทึกรายการ'}</span>
-              </button>
+              {!isReadOnly && (
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 px-5 py-2 bg-sky-500 hover:bg-sky-400 text-slate-100 font-bold rounded-lg transition-colors shadow-md shadow-sky-500/25 cursor-pointer text-xs sm:text-sm"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{taskToEdit ? 'บันทึกการแก้ไข' : 'บันทึกรายการ'}</span>
+                </button>
+              )}
             </div>
           </div>
         </form>

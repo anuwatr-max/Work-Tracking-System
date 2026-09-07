@@ -38,6 +38,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   onShowToast,
 }) => {
   const [copiedType, setCopiedType] = useState<'editor' | 'viewer' | null>(null);
+  const [copiedUserId, setCopiedUserId] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newDivision, setNewDivision] = useState('งานธุรการ (1)');
@@ -56,12 +57,19 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Generate shareable URLs
-  const getShareUrl = (role: UserRole) => {
+  // Generate shareable URLs using the public Preview domain so any external user can access
+  const getShareUrl = (role: UserRole, userId?: string) => {
     if (typeof window === 'undefined') return '';
-    const origin = window.location.origin;
+    let origin = window.location.origin;
+    // CRITICAL: In Google AI Studio, ais-dev- is a private container URL that only the developer can open.
+    // We MUST replace 'ais-dev-' with 'ais-pre-' to generate the public shared URL that anyone can open!
+    origin = origin.replace('ais-dev-', 'ais-pre-');
     const pathname = window.location.pathname;
-    return `${origin}${pathname}?role=${role}`;
+    let url = `${origin}${pathname}?role=${role}`;
+    if (userId) {
+      url += `&user=${encodeURIComponent(userId)}`;
+    }
+    return url;
   };
 
   const editorUrl = getShareUrl('editor');
@@ -81,11 +89,33 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         document.body.removeChild(textArea);
       }
       setCopiedType(role);
-      onShowToast(`คัดลอกลิงก์สิทธิ์ ${role === 'editor' ? 'Editor (ผู้แก้ไข)' : 'Viewer (ผู้เข้าชม)'} เรียบร้อยแล้ว`);
+      onShowToast(`คัดลอกลิงก์สาธารณะ (${role === 'editor' ? 'Editor' : 'Viewer'}) สำเร็จ สามารถส่งให้บุคคลอื่นเปิดดูได้ทันที`);
       setTimeout(() => setCopiedType(null), 2500);
     } catch (err) {
       console.error('Failed to copy', err);
       onShowToast('ไม่สามารถคัดลอกได้ กรุณาคัดลอกด้วยตนเอง');
+    }
+  };
+
+  const handleCopyUserLink = async (user: SharedUser) => {
+    const url = getShareUrl(user.role, user.id);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = url;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopiedUserId(user.id);
+      onShowToast(`คัดลอกลิงก์สิทธิ์ส่วนบุคคลสำหรับ "${user.name}" (${user.role === 'editor' ? 'Editor' : 'Viewer'}) สำเร็จ สามารถส่งให้เข้าใช้งานได้ทันที`);
+      setTimeout(() => setCopiedUserId(null), 2500);
+    } catch (err) {
+      console.error('Failed to copy user link', err);
+      onShowToast('ไม่สามารถคัดลอกได้ กรุณาลองใหม่อีกครั้ง');
     }
   };
 
@@ -186,93 +216,139 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 </div>
               </div>
 
-              {/* Role Switcher Button */}
-              <div className="flex items-center bg-slate-800 p-1 rounded-lg border border-slate-700 shrink-0">
-                <button
-                  id="switch-to-editor-btn"
-                  onClick={() => {
-                    onRoleChange('editor');
-                    onShowToast('สลับเป็นสิทธิ์ "Editor (ผู้แก้ไข)" แล้ว');
-                  }}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-                    currentRole === 'editor'
-                      ? 'bg-emerald-600 text-white shadow-sm font-semibold'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>Editor (ผู้แก้ไข)</span>
-                </button>
-                <button
-                  id="switch-to-viewer-btn"
-                  onClick={() => {
-                    onRoleChange('viewer');
-                    onShowToast('สลับเป็นสิทธิ์ "Viewer (ผู้เข้าชม)" แล้ว');
-                  }}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-                    currentRole === 'viewer'
-                      ? 'bg-sky-600 text-white shadow-sm font-semibold'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>Viewer (ผู้เข้าชม)</span>
-                </button>
-              </div>
+              {/* Role Switcher or Restricted Viewer Badge */}
+              {currentRole === 'editor' ? (
+                <div className="flex items-center bg-slate-800 p-1 rounded-lg border border-slate-700 shrink-0">
+                  <button
+                    id="switch-to-editor-btn"
+                    onClick={() => {
+                      onRoleChange('editor');
+                      onShowToast('สลับเป็นสิทธิ์ "Editor (ผู้แก้ไข)" แล้ว');
+                    }}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                      currentRole === 'editor'
+                        ? 'bg-emerald-600 text-white shadow-sm font-semibold'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Editor (ผู้แก้ไข)</span>
+                  </button>
+                  <button
+                    id="switch-to-viewer-btn"
+                    onClick={() => {
+                      onRoleChange('viewer');
+                      onShowToast('สลับเป็นสิทธิ์ "Viewer (ผู้เข้าชม)" แล้ว');
+                    }}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                      currentRole === 'viewer'
+                        ? 'bg-sky-600 text-white shadow-sm font-semibold'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Viewer (ผู้เข้าชม)</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-sky-950/50 border border-sky-500/30 text-xs text-sky-300 font-medium">
+                  <Lock className="w-3.5 h-3.5 text-sky-400" />
+                  <span>โหมดผู้ดูอย่างเดียว (จำกัดสิทธิ์)</span>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Share Links by Role Section */}
           <div className="space-y-3.5">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Share2 className="w-3.5 h-3.5 text-sky-400" />
-              ลิงก์แชร์ระบบพร้อมกำหนดสิทธิ์ (Share Links)
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Share2 className="w-3.5 h-3.5 text-sky-400" />
+                ลิงก์แชร์ระบบพร้อมกำหนดสิทธิ์ (Share Links)
+              </h3>
+              <span className="text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-medium">
+                โดเมนสาธารณะ (Public URL)
+              </span>
+            </div>
 
-            {/* Editor Link Box */}
-            <div className="bg-gradient-to-r from-emerald-950/30 to-slate-900/60 border border-emerald-500/30 rounded-xl p-3.5 sm:p-4 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="font-semibold text-emerald-300 text-sm flex items-center gap-1.5">
-                    <Edit3 className="w-4 h-4 text-emerald-400" />
-                    ลิงก์สำหรับผู้แก้ไข (Editor Link — สิทธิ์เต็ม)
-                  </span>
-                </div>
-                <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  สำหรับผู้ปฏิบัติงาน / คณะทำงาน
-                </span>
-              </div>
-              <p className="text-xs text-slate-300">
-                ผู้เปิดลิงก์นี้จะมีสิทธิ์ <strong>Editor</strong>: เพิ่มภารกิจ, แก้ไขความก้าวหน้า/ผลลัพธ์, ลบงาน, นำเข้า CSV และบันทึกรายงานสรุปประจำเดือน
-              </p>
-              <div className="flex items-center gap-2">
-                <input
-                  id="share-editor-url-input"
-                  type="text"
-                  readOnly
-                  value={editorUrl}
-                  className="flex-1 bg-slate-900/90 border border-emerald-500/40 rounded-lg px-3 py-2 text-xs text-slate-200 font-mono select-all focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                />
-                <button
-                  id="copy-editor-url-btn"
-                  onClick={() => handleCopyLink('editor')}
-                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shrink-0 shadow-md shadow-emerald-900/30 cursor-pointer"
-                >
-                  {copiedType === 'editor' ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-white" />
-                      <span>คัดลอกแล้ว!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>คัดลอกลิงก์</span>
-                    </>
-                  )}
-                </button>
+            {/* Public Domain Info Banner */}
+            <div className="bg-sky-500/10 border border-sky-500/25 rounded-xl p-3 flex items-start gap-2.5 text-xs text-sky-200">
+              <Info className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-semibold text-sky-300">ลิงก์สาธารณะพร้อมแชร์ภายนอก:</span>
+                <p className="text-slate-300 mt-0.5 leading-relaxed">
+                  ระบบได้ปรับปรุง URL เป็นโดเมนสาธารณะ (<code className="text-sky-300 bg-sky-950/60 px-1 py-0.5 rounded font-mono text-[11px]">ais-pre-...</code>) ให้อัตโนมัติ เพื่อให้ผู้รับ (ทั้งผู้บริหารและผู้ปฏิบัติงาน) สามารถเปิดดูและใช้งานได้ทันทีบนคอมพิวเตอร์ แท็บเล็ต หรือสมาร์ทโฟนทุกเครื่อง โดยไม่ติดปัญหาแจ้งเตือนสิทธิ์
+                </p>
               </div>
             </div>
+
+            {/* Editor Link Box (Shown only for Editor) */}
+            {currentRole === 'editor' ? (
+              <div className="bg-gradient-to-r from-emerald-950/30 to-slate-900/60 border border-emerald-500/30 rounded-xl p-3.5 sm:p-4 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="font-semibold text-emerald-300 text-sm flex items-center gap-1.5">
+                      <Edit3 className="w-4 h-4 text-emerald-400" />
+                      ลิงก์สำหรับผู้แก้ไข (Editor Link — สิทธิ์เต็ม)
+                    </span>
+                  </div>
+                  <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    สำหรับผู้ปฏิบัติงาน / คณะทำงาน
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300">
+                  ผู้เปิดลิงก์นี้จะมีสิทธิ์ <strong>Editor</strong>: เพิ่มภารกิจ, แก้ไขความก้าวหน้า/ผลลัพธ์, ลบงาน, นำเข้า CSV และบันทึกรายงานสรุปประจำเดือน
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="share-editor-url-input"
+                    type="text"
+                    readOnly
+                    value={editorUrl}
+                    className="flex-1 bg-slate-900/90 border border-emerald-500/40 rounded-lg px-3 py-2 text-xs text-slate-200 font-mono select-all focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                  />
+                  <button
+                    id="copy-editor-url-btn"
+                    onClick={() => handleCopyLink('editor')}
+                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shrink-0 shadow-md shadow-emerald-900/30 cursor-pointer"
+                  >
+                    {copiedType === 'editor' ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-white" />
+                        <span>คัดลอกแล้ว!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>คัดลอกลิงก์</span>
+                      </>
+                    )}
+                  </button>
+                  <a
+                    id="open-editor-test-link"
+                    href={editorUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 border border-slate-700 rounded-lg text-xs transition-colors flex items-center gap-1 shrink-0"
+                    title="เปิดทดสอบลิงก์นี้ในแท็บใหม่"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">เปิดดู</span>
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-slate-900/60 border border-amber-500/30 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-amber-300/90">
+                <Lock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-amber-300">ปิดการแชร์ลิงก์ Editor สำหรับสิทธิ์ Viewer:</span>
+                  <p className="text-slate-400 mt-0.5 leading-relaxed">
+                    ระบบไม่อนุญาตให้ผู้ใช้งานสิทธิ์ผู้ดูอย่างเดียว (Viewer) คัดลอกหรือแชร์ลิงก์สิทธิ์ Editor ท่านสามารถคัดลอกและส่งต่อได้เฉพาะลิงก์สำหรับผู้เข้าชม (Viewer Link) เพื่อความปลอดภัยของข้อมูล
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Viewer Link Box */}
             <div className="bg-slate-900/50 border border-slate-700/80 rounded-xl p-3.5 sm:p-4 space-y-2.5">
@@ -316,6 +392,17 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                     </>
                   )}
                 </button>
+                <a
+                  id="open-viewer-test-link"
+                  href={viewerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-sky-400 border border-slate-700 rounded-lg text-xs transition-colors flex items-center gap-1 shrink-0"
+                  title="เปิดทดสอบลิงก์นี้ในแท็บใหม่"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">เปิดดู</span>
+                </a>
               </div>
             </div>
           </div>
@@ -380,22 +467,31 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           {/* Authorized Team Members & Editors */}
           <div className="space-y-3 pt-1">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-sky-400" />
-                รายชื่อผู้ประสานงานและผู้มีสิทธิ์ Editor ประจำหน่วยงาน ({sharedUsers.length} ท่าน)
-              </h3>
-              <button
-                id="toggle-add-user-btn"
-                onClick={() => setIsAddingUser(!isAddingUser)}
-                className="text-xs text-sky-400 hover:text-sky-300 font-medium flex items-center gap-1 cursor-pointer"
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                <span>{isAddingUser ? 'ซ่อนฟอร์ม' : '+ เพิ่มผู้มีสิทธิ์'}</span>
-              </button>
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-sky-400" />
+                  รายชื่อผู้ประสานงานประจำหน่วยงาน ({sharedUsers.length} ท่าน)
+                </h3>
+                {currentRole === 'viewer' && (
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    (แสดงรายชื่อเพื่อการตรวจสอบ — เฉพาะผู้มีสิทธิ์ Editor เท่านั้นที่สามารถเพิ่มหรือปรับปรุงสิทธิ์ได้)
+                  </p>
+                )}
+              </div>
+              {currentRole === 'editor' && (
+                <button
+                  id="toggle-add-user-btn"
+                  onClick={() => setIsAddingUser(!isAddingUser)}
+                  className="text-xs text-sky-400 hover:text-sky-300 font-medium flex items-center gap-1 cursor-pointer"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>{isAddingUser ? 'ซ่อนฟอร์ม' : '+ เพิ่มผู้มีสิทธิ์'}</span>
+                </button>
+              )}
             </div>
 
-            {/* Add User Form */}
-            {isAddingUser && (
+            {/* Add User Form (Editor Only) */}
+            {currentRole === 'editor' && isAddingUser && (
               <form onSubmit={handleAddUser} className="bg-slate-900/80 border border-slate-700 p-3.5 rounded-xl space-y-3 animate-in fade-in duration-150">
                 <div className="text-xs font-medium text-slate-300">เพิ่มรายชื่อผู้ได้รับสิทธิ์ใหม่:</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -493,36 +589,67 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => handleToggleUserRole(user.id)}
-                      title="คลิกเพื่อสลับสิทธิ์ระหว่าง Editor และ Viewer"
-                      className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors cursor-pointer flex items-center gap-1 ${
-                        user.role === 'editor'
-                          ? 'bg-emerald-950/40 text-emerald-300 border-emerald-600/40 hover:bg-emerald-900/40'
-                          : 'bg-slate-800 text-slate-300 border-slate-600 hover:bg-slate-700'
-                      }`}
-                    >
-                      {user.role === 'editor' ? (
-                        <>
-                          <Unlock className="w-3 h-3 text-emerald-400" />
-                          <span>Editor</span>
-                        </>
-                      ) : (
-                        <>
-                          <Lock className="w-3 h-3 text-slate-400" />
-                          <span>Viewer</span>
-                        </>
-                      )}
-                    </button>
+                    {currentRole === 'editor' ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyUserLink(user)}
+                          title={`คัดลอกลิงก์ส่วนบุคคลสำหรับ ${user.name} (${user.role === 'editor' ? 'Editor' : 'Viewer'})`}
+                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-sky-300 hover:text-sky-200 border border-slate-700 hover:border-sky-500/50 rounded-md text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer"
+                        >
+                          {copiedUserId === user.id ? (
+                            <>
+                              <Check className="w-3 h-3 text-sky-400" />
+                              <span className="text-sky-400 font-semibold">คัดลอกแล้ว</span>
+                            </>
+                          ) : (
+                            <>
+                              <Share2 className="w-3 h-3 text-sky-400" />
+                              <span>แชร์ลิงก์</span>
+                            </>
+                          )}
+                        </button>
 
-                    {user.id !== 'user-1' && (
-                      <button
-                        onClick={() => handleDeleteUser(user.id)}
-                        title="ลบออกจากรายชื่อ"
-                        className="p-1 text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                        <button
+                          onClick={() => handleToggleUserRole(user.id)}
+                          title="คลิกเพื่อสลับสิทธิ์ระหว่าง Editor และ Viewer"
+                          className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors cursor-pointer flex items-center gap-1 ${
+                            user.role === 'editor'
+                              ? 'bg-emerald-950/40 text-emerald-300 border-emerald-600/40 hover:bg-emerald-900/40'
+                              : 'bg-slate-800 text-slate-300 border-slate-600 hover:bg-slate-700'
+                          }`}
+                        >
+                          {user.role === 'editor' ? (
+                            <>
+                              <Unlock className="w-3 h-3 text-emerald-400" />
+                              <span>Editor</span>
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="w-3 h-3 text-slate-400" />
+                              <span>Viewer</span>
+                            </>
+                          )}
+                        </button>
+
+                        {user.id !== 'user-1' && (
+                          <button
+                            onClick={() => handleDeleteUser(user.id)}
+                            title="ลบออกจากรายชื่อ"
+                            className="p-1 text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                        user.role === 'editor'
+                          ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                          : 'bg-sky-500/10 text-sky-300 border-sky-500/20'
+                      }`}>
+                        {user.role === 'editor' ? 'Editor' : 'Viewer'}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -534,7 +661,9 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           <div className="p-3 bg-sky-950/20 border border-sky-500/20 rounded-xl flex items-start gap-2.5 text-xs text-sky-300/90">
             <Info className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
             <div>
-              <strong>คำแนะนำ:</strong> เมื่อส่งลิงก์ให้ผู้ร่วมงานใช้งาน หากส่งลิงก์ที่มี <code className="bg-sky-900/40 px-1 py-0.5 rounded text-sky-200">?role=editor</code> ผู้ร่วมงานจะได้รับสิทธิ์แก้ไขภารกิจทันทีโดยไม่ต้องตั้งค่าเพิ่มเติม หรือผู้ใช้งานสามารถเปิดเมนู <strong>"แชร์ (Share)"</strong> เพื่อสลับสิทธิ์ได้ตลอดเวลา
+              <strong>คำแนะนำ:</strong> {currentRole === 'editor' 
+                ? 'ท่านสามารถคัดลอกลิงก์ Editor ส่งให้ผู้ปฏิบัติงานเพื่อร่วมบันทึกแก้ไข หรือส่งลิงก์ Viewer ให้ผู้บริหารเพื่อตรวจดูสถิติ'
+                : 'ท่านกำลังใช้งานในสิทธิ์ Viewer (ผู้เข้าชม) ท่านสามารถคัดลอกลิงก์ Viewer เพื่อส่งต่อให้ผู้บริหารหรือผู้ตรวจสอบเข้าดูข้อมูลได้'}
             </div>
           </div>
         </div>

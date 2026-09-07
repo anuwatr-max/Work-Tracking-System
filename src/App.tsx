@@ -31,7 +31,9 @@ import {
   loadUserRole,
   saveUserRole,
   loadSharedUsers,
-  saveSharedUsers
+  saveSharedUsers,
+  loadCurrentUserId,
+  saveCurrentUserId
 } from './utils/storage';
 import { exportTasksToCSV } from './utils/exportCsv';
 import { CheckCircle, AlertCircle, Building, Calendar, Layers } from 'lucide-react';
@@ -50,17 +52,50 @@ export default function App() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [currentRole, setCurrentRole] = useState<UserRole>('editor');
   const [sharedUsers, setSharedUsers] = useState<SharedUser[]>([]);
+  const [activeUser, setActiveUser] = useState<SharedUser | null>(null);
 
-  // Initialize data on mount
+  // Initialize data on mount and process query parameters (?role=..., ?user=...)
   useEffect(() => {
     const loadedTasks = loadTasksFromStorage();
     const loadedSummaries = loadSummariesFromStorage();
-    const role = loadUserRole();
     const users = loadSharedUsers();
     setTasks(loadedTasks);
     setSummaries(loadedSummaries);
-    setCurrentRole(role);
     setSharedUsers(users);
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlRole = params.get('role');
+      const userId = params.get('user');
+      const email = params.get('email');
+
+      let matchedUser: SharedUser | undefined;
+      if (userId) {
+        matchedUser = users.find(u => u.id === userId || u.email.toLowerCase() === userId.toLowerCase());
+      } else if (email) {
+        matchedUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      }
+
+      if (matchedUser) {
+        setActiveUser(matchedUser);
+        setCurrentRole(matchedUser.role);
+        saveUserRole(matchedUser.role);
+        saveCurrentUserId(matchedUser.id);
+        showToast(`เข้าสู่ระบบ: คุณ${matchedUser.name} (${matchedUser.division}) • สิทธิ์ ${matchedUser.role === 'editor' ? 'Editor (ผู้แก้ไข)' : 'Viewer (ผู้เข้าชม)'}`);
+      } else if (urlRole === 'editor' || urlRole === 'viewer') {
+        setCurrentRole(urlRole);
+        saveUserRole(urlRole);
+        showToast(`เปิดระบบในสิทธิ์ "${urlRole === 'editor' ? 'Editor (ผู้ปฏิบัติงาน/แก้ไข)' : 'Viewer (ผู้เข้าชม/ดูอย่างเดียว)'}"`);
+      } else {
+        const savedRole = loadUserRole();
+        setCurrentRole(savedRole);
+        const savedUserId = loadCurrentUserId();
+        if (savedUserId) {
+          const user = users.find(u => u.id === savedUserId);
+          if (user) setActiveUser(user);
+        }
+      }
+    }
   }, []);
 
   const [filterResetCount, setFilterResetCount] = useState(0);
@@ -98,13 +133,18 @@ export default function App() {
     saveSharedUsers(updatedUsers);
   };
 
+  const [taskModalInitialDiv, setTaskModalInitialDiv] = useState<DivisionId | undefined>(undefined);
+  const [taskModalInitialMonth, setTaskModalInitialMonth] = useState<string | undefined>(undefined);
+
   // Add / Edit Task
-  const handleOpenAddTask = () => {
+  const handleOpenAddTask = (initialDivId?: DivisionId, initialMonthId?: string) => {
     if (currentRole === 'viewer') {
-      showToast('คุณอยู่ในสิทธิ์ "Viewer (ผู้เข้าชม)" ไม่สามารถเพิ่มภารกิจได้ กรุณาสลับสิทธิ์เป็น Editor ในเมนูแชร์');
+      showToast('คุณอยู่ในสิทธิ์ "Viewer (ผู้เข้าชม)" ไม่สามารถเพิ่มภารกิจได้');
       setIsShareModalOpen(true);
       return;
     }
+    setTaskModalInitialDiv(initialDivId);
+    setTaskModalInitialMonth(initialMonthId);
     setTaskToEdit(null);
     setIsTaskModalOpen(true);
   };
@@ -296,6 +336,7 @@ export default function App() {
           onImportCSV={() => setIsGlobalImportModalOpen(true)}
           totalTasks={tasks.length}
           currentRole={currentRole}
+          activeUser={activeUser}
           onOpenShare={() => setIsShareModalOpen(true)}
         />
       </div>
@@ -323,6 +364,9 @@ export default function App() {
         {currentTab === 'tasks' && (
           <TaskListView
             tasks={tasks}
+            summaries={summaries}
+            onSaveSummary={handleSaveSummary}
+            onViewMonthlyReport={handleSelectMonthFromDashboard}
             onAddTask={handleOpenAddTask}
             onEditTask={handleOpenEditTask}
             onDeleteTask={handleDeleteTask}
@@ -344,6 +388,8 @@ export default function App() {
             onSaveSummary={handleSaveSummary}
             onEditTask={handleOpenEditTask}
             onQuickStatusChange={handleQuickStatusChange}
+            onAddTask={(divId, mId) => handleOpenAddTask(divId, mId)}
+            onShowToast={showToast}
             selectedMonthId={selectedMonthForReport}
             currentRole={currentRole}
           />
@@ -356,11 +402,15 @@ export default function App() {
         onClose={() => {
           setIsTaskModalOpen(false);
           setTaskToEdit(null);
+          setTaskModalInitialDiv(undefined);
+          setTaskModalInitialMonth(undefined);
         }}
         onSave={handleSaveTask}
         onDelete={handleDeleteTask}
         taskToEdit={taskToEdit}
         isReadOnly={currentRole === 'viewer'}
+        initialDivisionId={taskModalInitialDiv}
+        initialMonthId={taskModalInitialMonth}
       />
 
       {/* Reset System Confirmation Modal */}

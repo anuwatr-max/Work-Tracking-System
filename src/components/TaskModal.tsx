@@ -17,6 +17,8 @@ interface TaskModalProps {
   onDelete?: (taskId: string) => void;
   taskToEdit?: WorkTask | null;
   isReadOnly?: boolean;
+  initialDivisionId?: DivisionId;
+  initialMonthId?: string;
 }
 
 export const TaskModal: React.FC<TaskModalProps> = ({
@@ -26,6 +28,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   onDelete,
   taskToEdit,
   isReadOnly = false,
+  initialDivisionId,
+  initialMonthId,
 }) => {
   const [title, setTitle] = useState('');
   const [divisionId, setDivisionId] = useState<DivisionId>('admin');
@@ -62,15 +66,20 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       setPriority(taskToEdit.priority);
     } else {
       // Defaults for new task
+      const defaultDiv = initialDivisionId || 'admin';
+      const divData = DIVISIONS_DATA.find(d => d.id === defaultDiv);
+      const defaultUnit = divData?.units[0]?.id || 'admin-plan';
+      const defaultMonth = initialMonthId || '2569-10';
+
       setTitle('');
-      setDivisionId('admin');
-      setUnitId('admin-plan');
-      setMonthId('2569-10');
+      setDivisionId(defaultDiv);
+      setUnitId(defaultUnit);
+      setMonthId(defaultMonth);
       setAssignee('');
       setStatus('not_started');
       setProgress(0);
-      setStartDate('2569-10-01');
-      setDueDate('2569-10-31');
+      setStartDate(`${defaultMonth}-01`);
+      setDueDate(`${defaultMonth}-28`);
       setDescription('');
       setOutput('');
       setIssues('');
@@ -78,7 +87,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       setPriority('medium');
     }
     setErrors({});
-  }, [taskToEdit, isOpen]);
+  }, [taskToEdit, isOpen, initialDivisionId, initialMonthId]);
 
   // When division changes, update unit to the first unit of that division
   const handleDivisionChange = (newDivId: DivisionId) => {

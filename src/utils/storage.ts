@@ -5,6 +5,7 @@ const TASKS_STORAGE_KEY = 'work_tracking_system_tasks_v2';
 const SUMMARIES_STORAGE_KEY = 'work_tracking_system_summaries_v2';
 export const USER_ROLE_STORAGE_KEY = 'work_tracking_system_role_v1';
 export const SHARED_USERS_STORAGE_KEY = 'work_tracking_system_shared_users_v1';
+export const CURRENT_USER_STORAGE_KEY = 'work_tracking_system_current_user_v1';
 
 export const DEFAULT_SHARED_USERS: SharedUser[] = [
   {
@@ -179,3 +180,34 @@ export function saveSharedUsers(users: SharedUser[]): void {
     console.error('Error saving shared users to localStorage', e);
   }
 }
+
+export function loadCurrentUserId(): string | null {
+  if (typeof window !== 'undefined') {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlUser = urlParams.get('user');
+      if (urlUser) {
+        localStorage.setItem(CURRENT_USER_STORAGE_KEY, urlUser);
+        return urlUser;
+      }
+      return localStorage.getItem(CURRENT_USER_STORAGE_KEY);
+    } catch (e) {
+      console.error('Error loading current user ID', e);
+    }
+  }
+  return null;
+}
+
+export function saveCurrentUserId(userId: string | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (userId) {
+      localStorage.setItem(CURRENT_USER_STORAGE_KEY, userId);
+    } else {
+      localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
+    }
+  } catch (e) {
+    console.error('Error saving current user ID', e);
+  }
+}
+

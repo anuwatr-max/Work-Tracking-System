@@ -13,7 +13,7 @@ import {
   Eye,
   Unlock
 } from 'lucide-react';
-import { UserRole } from '../types';
+import { UserRole, SharedUser } from '../types';
 
 interface NavbarProps {
   currentTab: 'dashboard' | 'tasks' | 'monthly_report';
@@ -24,6 +24,7 @@ interface NavbarProps {
   onImportCSV?: () => void;
   onOpenShare: () => void;
   currentRole: UserRole;
+  activeUser?: SharedUser | null;
   totalTasks: number;
 }
 
@@ -36,6 +37,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onImportCSV,
   onOpenShare,
   currentRole,
+  activeUser,
   totalTasks,
 }) => {
   return (
@@ -70,6 +72,18 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Quick Actions */}
           <div className="flex items-center space-x-2 sm:space-x-2.5">
+            {/* Active User Badge if recognized */}
+            {activeUser && (
+              <div 
+                id="active-user-badge" 
+                title={`${activeUser.name} (${activeUser.division})`}
+                className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/80 text-xs"
+              >
+                <div className={`w-2 h-2 rounded-full ${currentRole === 'editor' ? 'bg-emerald-400' : 'bg-sky-400'}`} />
+                <span className="font-medium text-slate-200 truncate max-w-[130px]">{activeUser.name}</span>
+              </div>
+            )}
+
             {/* Share & Role Management Button */}
             <button
               id="share-btn"

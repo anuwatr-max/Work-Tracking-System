@@ -6,7 +6,8 @@ import {
   DIVISIONS_DATA, 
   FISCAL_MONTHS, 
   STATUS_CONFIG,
-  UserRole
+  UserRole,
+  MonthlyDivisionSummary
 } from '../types';
 import { 
   Search, 
@@ -27,17 +28,29 @@ import {
   RefreshCw,
   X,
   ChevronDown,
+  ChevronUp,
   FileSpreadsheet,
   Upload,
   ShieldAlert,
-  Share2
+  Share2,
+  Zap,
+  Building2,
+  TrendingUp,
+  Save,
+  ArrowUpRight,
+  Sparkles,
+  Check
 } from 'lucide-react';
 import { ConfirmModal } from './ConfirmModal';
 import { CsvImportModal } from './CsvImportModal';
 import { exportTasksToCSV } from '../utils/exportCsv';
+import { compileSummaryFromTasks, buildSyncedSummary } from '../utils/summarySync';
 
 interface TaskListViewProps {
   tasks: WorkTask[];
+  summaries?: MonthlyDivisionSummary[];
+  onSaveSummary?: (summary: MonthlyDivisionSummary) => void;
+  onViewMonthlyReport?: (monthId: string) => void;
   onAddTask: () => void;
   onEditTask: (task: WorkTask) => void;
   onDeleteTask: (taskId: string) => void;
@@ -53,6 +66,9 @@ interface TaskListViewProps {
 
 export const TaskListView: React.FC<TaskListViewProps> = ({
   tasks,
+  summaries = [],
+  onSaveSummary,
+  onViewMonthlyReport,
   onAddTask,
   onEditTask,
   onDeleteTask,
@@ -111,6 +127,98 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
   const inspectTask = useMemo(() => {
     return tasks.find((t) => t.id === inspectTaskId) || null;
   }, [tasks, inspectTaskId]);
+
+  // Monthly Summary Sync state & variables
+  const [isSummaryWidgetOpen, setIsSummaryWidgetOpen] = useState(true);
+  const [summaryDivisionTab, setSummaryDivisionTab] = useState<DivisionId>('admin');
+  const [isEditingSummary, setIsEditingSummary] = useState(false);
+  const [summaryEditForm, setSummaryEditForm] = useState({
+    summaryText: '',
+    achievements: '',
+    obstacles: '',
+    nextPlan: '',
+    reporter: ''
+  });
+
+  // Active month & division for monthly summary widget
+  const activeSummaryMonthId = selectedMonth !== 'all' ? selectedMonth : '2569-10';
+  const activeSummaryDivId: DivisionId = selectedDivision !== 'all' ? selectedDivision : summaryDivisionTab;
+
+  const activeSummaryMonthInfo = useMemo(() => {
+    return FISCAL_MONTHS.find(m => m.id === activeSummaryMonthId) || FISCAL_MONTHS[0];
+  }, [activeSummaryMonthId]);
+
+  const activeSummaryDivInfo = useMemo(() => {
+    return DIVISIONS_DATA.find(d => d.id === activeSummaryDivId) || DIVISIONS_DATA[0];
+  }, [activeSummaryDivId]);
+
+  // Tasks in task register that belong to active summary month and division
+  const summaryMatchingTasks = useMemo(() => {
+    return tasks.filter(t => t.monthId === activeSummaryMonthId && t.divisionId === activeSummaryDivId);
+  }, [tasks, activeSummaryMonthId, activeSummaryDivId]);
+
+  const summaryStats = useMemo(() => {
+    const total = summaryMatchingTasks.length;
+    const completed = summaryMatchingTasks.filter(t => t.status === 'completed').length;
+    const inProgress = summaryMatchingTasks.filter(t => t.status === 'in_progress').length;
+    const delayed = summaryMatchingTasks.filter(t => t.status === 'delayed').length;
+    const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+    return { total, completed, inProgress, delayed, rate };
+  }, [summaryMatchingTasks]);
+
+  // Current saved monthly summary
+  const activeSavedSummary = useMemo(() => {
+    return summaries.find(s => s.monthId === activeSummaryMonthId && s.divisionId === activeSummaryDivId);
+  }, [summaries, activeSummaryMonthId, activeSummaryDivId]);
+
+  // 1-Click Sync Summary from Tasks in Register
+  const handleSyncSummaryForActiveDivision = () => {
+    if (!onSaveSummary) return;
+    const synced = buildSyncedSummary(activeSummaryMonthId, activeSummaryDivId, tasks, activeSavedSummary);
+    onSaveSummary(synced);
+    onShowToast?.(`ซิงค์สรุปผลงาน "${activeSummaryDivInfo.name}" ประจำเดือน "${activeSummaryMonthInfo.label}" จากทะเบียนงานเรียบร้อยแล้ว (${summaryMatchingTasks.length} รายการ)`);
+  };
+
+  const handleStartEditSummary = () => {
+    setSummaryEditForm({
+      summaryText: activeSavedSummary?.summaryText || '',
+      achievements: activeSavedSummary?.achievements || '',
+      obstacles: activeSavedSummary?.obstacles || '',
+      nextPlan: activeSavedSummary?.nextPlan || '',
+      reporter: activeSavedSummary?.reporter || `หัวหน้า${activeSummaryDivInfo.name}`
+    });
+    setIsEditingSummary(true);
+  };
+
+  const handleAutoFillSummaryModal = () => {
+    const compiled = compileSummaryFromTasks(activeSummaryMonthId, activeSummaryDivId, tasks, activeSavedSummary);
+    setSummaryEditForm(prev => ({
+      ...prev,
+      summaryText: compiled.summaryText,
+      achievements: compiled.achievements,
+      obstacles: compiled.obstacles,
+      nextPlan: compiled.nextPlan
+    }));
+    onShowToast?.('ดึงข้อมูลความก้าวหน้าและผลลัพธ์จากทะเบียนงานลงในฟอร์มเรียบร้อยแล้ว');
+  };
+
+  const handleSaveSummaryEdit = () => {
+    if (!onSaveSummary) return;
+    const updated: MonthlyDivisionSummary = {
+      id: activeSavedSummary?.id || `sum-${activeSummaryMonthId}-${activeSummaryDivId}`,
+      monthId: activeSummaryMonthId,
+      divisionId: activeSummaryDivId,
+      summaryText: summaryEditForm.summaryText,
+      achievements: summaryEditForm.achievements,
+      obstacles: summaryEditForm.obstacles,
+      nextPlan: summaryEditForm.nextPlan,
+      reporter: summaryEditForm.reporter,
+      reportedDate: new Date().toISOString().split('T')[0]
+    };
+    onSaveSummary(updated);
+    setIsEditingSummary(false);
+    onShowToast?.('บันทึกรายงานสรุปผลการดำเนินงานเรียบร้อยแล้ว');
+  };
 
   // When division changes, reset unit if not matching
   const handleDivisionChange = (divId: DivisionId | 'all') => {
@@ -337,113 +445,310 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
           </div>
         </div>
 
-        {/* Viewer Role Alert Banner */}
-        {currentRole === 'viewer' && (
-          <div className="p-3 bg-sky-950/30 border border-sky-500/30 rounded-xl flex items-center justify-between gap-3 text-xs text-sky-200">
-            <div className="flex items-center gap-2">
-              <Eye className="w-4 h-4 text-sky-400 shrink-0" />
-              <span>
-                กำลังดูข้อมูลในสิทธิ์ <strong>Viewer (ผู้เข้าชม)</strong> — สามารถตรวจสอบ ค้นหา และส่งออกข้อมูลได้ (ปุ่มแก้ไขและลบถูกปิดใช้งาน)
-              </span>
+            {/* Viewer Role Alert Banner */}
+            {currentRole === 'viewer' && (
+              <div className="p-3 bg-sky-950/30 border border-sky-500/30 rounded-xl flex items-center justify-between gap-3 text-xs text-sky-200">
+                <div className="flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-sky-400 shrink-0" />
+                  <span>
+                    กำลังดูข้อมูลในสิทธิ์ <strong>Viewer (ผู้เข้าชม)</strong> — สามารถตรวจสอบ ค้นหา และส่งออกข้อมูลได้ (ปุ่มแก้ไขและลบถูกปิดใช้งาน)
+                  </span>
+                </div>
+                {onOpenShare && (
+                  <button
+                    onClick={onOpenShare}
+                    className="px-2.5 py-1 bg-sky-600/80 hover:bg-sky-500 text-white rounded-lg font-semibold shrink-0 transition-colors cursor-pointer flex items-center gap-1"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    <span>แชร์ลิงก์ดูข้อมูล</span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Filter Controls Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 pt-2 border-t border-slate-700/60">
+              {/* Keyword Search */}
+              <div className="relative sm:col-span-2 lg:col-span-1">
+                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="ค้นชื่องาน, ผู้รับผิดชอบ..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                />
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Month Select */}
+              <div>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="w-full py-1.5 px-2.5 text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                >
+                  <option value="all">📅 ประจำเดือน: ทุกเดือน</option>
+                  {FISCAL_MONTHS.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Division Select */}
+              <div>
+                <select
+                  value={selectedDivision}
+                  onChange={(e) => handleDivisionChange(e.target.value as DivisionId | 'all')}
+                  className="w-full py-1.5 px-2.5 text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                >
+                  <option value="all">🏢 งานหลัก: ทั้งหมด 4 งาน</option>
+                  {DIVISIONS_DATA.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.code}. {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Unit Select */}
+              <div>
+                <select
+                  value={selectedUnit}
+                  onChange={(e) => setSelectedUnit(e.target.value)}
+                  className="w-full py-1.5 px-2.5 text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                >
+                  <option value="all">📂 หน่วยงานย่อย: ทั้งหมด</option>
+                  {availableUnits.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.code} {u.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Status Select */}
+              <div>
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value as TaskStatus | 'all')}
+                  className="w-full py-1.5 px-2.5 text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                >
+                  <option value="all">🚦 สถานะ: ทั้งหมด</option>
+                  <option value="completed">เสร็จสิ้น</option>
+                  <option value="in_progress">กำลังดำเนินการ</option>
+                  <option value="pending_review">รอตรวจ/รออนุมัติ</option>
+                  <option value="delayed">ล่าช้ากว่ากำหนด</option>
+                  <option value="not_started">ยังไม่เริ่ม</option>
+                </select>
+              </div>
             </div>
-            {onOpenShare && (
-              <button
-                onClick={onOpenShare}
-                className="px-2.5 py-1 bg-sky-600/80 hover:bg-sky-500 text-white rounded-lg font-semibold shrink-0 transition-colors cursor-pointer flex items-center gap-1"
-              >
-                <Share2 className="w-3.5 h-3.5" />
-                <span>สลับเป็นสิทธิ์ Editor</span>
-              </button>
-            )}
-          </div>
-        )}
 
-        {/* Filter Controls Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 pt-2 border-t border-slate-700/60">
-          {/* Keyword Search */}
-          <div className="relative sm:col-span-2 lg:col-span-1">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="ค้นชื่องาน, ผู้รับผิดชอบ..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-            />
-            {searchQuery && (
-              <button 
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
+            {/* Monthly Division Summary Synced Widget */}
+            <div className="bg-[#1e293b]/90 border border-slate-700/90 rounded-xl overflow-hidden shadow-sm transition-all mt-3">
+              {/* Header of the Summary Widget */}
+              <div className="bg-gradient-to-r from-slate-900/90 via-slate-800/80 to-slate-900/90 p-3.5 sm:p-4 border-b border-slate-700/80 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="p-2 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20 shrink-0">
+                    <Building2 className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-bold text-slate-100 text-sm sm:text-base flex items-center gap-1.5">
+                        <span>สรุปผลการดำเนินงานประจำเดือน:</span>
+                        <span className="text-sky-400">{activeSummaryDivInfo.name}</span>
+                      </h3>
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-sky-500/10 text-sky-300 border border-sky-500/20">
+                        {activeSummaryMonthInfo.label} (ไตรมาส {activeSummaryMonthInfo.quarter})
+                      </span>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 flex items-center gap-1">
+                        <Zap className="w-3 h-3 text-emerald-400" />
+                        ซิงค์กับทะเบียนติดตามงาน
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      ประมวลผลสรุปภาพรวม ผลงานเด่น และปัญหาอุปสรรคจากภารกิจในทะเบียนงาน ({summaryMatchingTasks.length} รายการ)
+                    </p>
+                  </div>
+                </div>
 
-          {/* Month Select */}
-          <div>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full py-1.5 px-2.5 text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-            >
-              <option value="all">📅 ประจำเดือน: ทุกเดือน</option>
-              {FISCAL_MONTHS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </div>
+                {/* Actions for Summary Widget */}
+                <div className="flex items-center gap-2 flex-wrap self-end md:self-auto">
+                  {/* 1-Click Sync Button (Editor only) */}
+                  {currentRole === 'editor' && onSaveSummary && (
+                    <button
+                      onClick={handleSyncSummaryForActiveDivision}
+                      title="ประมวลผลดึงผลลัพธ์และอุปสรรคจากภารกิจในทะเบียนงานลงในสรุปผลงานทันที"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-300 border border-emerald-500/40 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>ซิงค์สรุปผลงานจากภารกิจนี้</span>
+                    </button>
+                  )}
 
-          {/* Division Select */}
-          <div>
-            <select
-              value={selectedDivision}
-              onChange={(e) => handleDivisionChange(e.target.value as DivisionId | 'all')}
-              className="w-full py-1.5 px-2.5 text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-            >
-              <option value="all">🏢 งานหลัก: ทั้งหมด 4 งาน</option>
-              {DIVISIONS_DATA.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.code}. {d.name}
-                </option>
-              ))}
-            </select>
-          </div>
+                  {/* Edit Summary Button (Editor only) */}
+                  {currentRole === 'editor' && onSaveSummary && (
+                    <button
+                      onClick={handleStartEditSummary}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-slate-100 border border-slate-700 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-sky-400" />
+                      <span>แก้ไขบทสรุป</span>
+                    </button>
+                  )}
 
-          {/* Unit Select */}
-          <div>
-            <select
-              value={selectedUnit}
-              onChange={(e) => setSelectedUnit(e.target.value)}
-              className="w-full py-1.5 px-2.5 text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-            >
-              <option value="all">📂 หน่วยงานย่อย: ทั้งหมด</option>
-              {availableUnits.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.code} {u.name}
-                </option>
-              ))}
-            </select>
-          </div>
+                  {/* View Full Monthly Report Button */}
+                  {onViewMonthlyReport && (
+                    <button
+                      onClick={() => onViewMonthlyReport(activeSummaryMonthId)}
+                      title="เปิดดูรายงานสรุปผลการดำเนินงานประจำเดือนฉบับเต็มทั้ง 4 งาน"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-sky-950/40 hover:bg-sky-900/50 text-sky-300 border border-sky-500/30 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                    >
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">ดูรายงานประจำเดือนฉบับเต็ม</span>
+                    </button>
+                  )}
 
-          {/* Status Select */}
-          <div>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value as TaskStatus | 'all')}
-              className="w-full py-1.5 px-2.5 text-xs sm:text-sm bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 focus:outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-            >
-              <option value="all">🚦 สถานะ: ทั้งหมด</option>
-              <option value="completed">เสร็จสิ้น</option>
-              <option value="in_progress">กำลังดำเนินการ</option>
-              <option value="pending_review">รอตรวจ/รออนุมัติ</option>
-              <option value="delayed">ล่าช้ากว่ากำหนด</option>
-              <option value="not_started">ยังไม่เริ่ม</option>
-            </select>
-          </div>
-        </div>
+                  {/* Collapse / Expand Toggle */}
+                  <button
+                    onClick={() => setIsSummaryWidgetOpen(!isSummaryWidgetOpen)}
+                    className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                    title={isSummaryWidgetOpen ? 'ย่อแผงสรุปผล' : 'ขยายแผงสรุปผล'}
+                  >
+                    {isSummaryWidgetOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Division Selector Tabs if user hasn't filtered to a single division */}
+              {isSummaryWidgetOpen && selectedDivision === 'all' && (
+                <div className="flex border-b border-slate-700/60 bg-slate-900/40 px-3 pt-2 gap-1 overflow-x-auto">
+                  {DIVISIONS_DATA.map((div) => {
+                    const isTabActive = summaryDivisionTab === div.id;
+                    const tabTaskCount = tasks.filter(t => t.monthId === activeSummaryMonthId && t.divisionId === div.id).length;
+                    return (
+                      <button
+                        key={div.id}
+                        onClick={() => setSummaryDivisionTab(div.id)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-t-lg transition-colors whitespace-nowrap cursor-pointer flex items-center gap-1.5 border-b-2 ${
+                          isTabActive
+                            ? 'border-sky-400 text-sky-300 bg-slate-800/80 font-bold'
+                            : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                        }`}
+                      >
+                        <span>{div.code}. {div.name}</span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-700 text-slate-300">
+                          {tabTaskCount}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Expanded Summary Body */}
+              {isSummaryWidgetOpen && (
+                <div className="p-4 sm:p-5 space-y-3.5 text-xs sm:text-sm animate-in fade-in duration-150">
+                  {/* Stats Bar */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 text-center">
+                    <div className="p-1.5">
+                      <div className="text-base sm:text-lg font-bold text-slate-100">{summaryStats.total} งาน</div>
+                      <div className="text-[11px] text-slate-400">ภารกิจในทะเบียน</div>
+                    </div>
+                    <div className="p-1.5">
+                      <div className="text-base sm:text-lg font-bold text-emerald-400">{summaryStats.completed} งาน ({summaryStats.rate}%)</div>
+                      <div className="text-[11px] text-slate-400">บรรลุเป้าหมาย</div>
+                    </div>
+                    <div className="p-1.5">
+                      <div className="text-base sm:text-lg font-bold text-sky-400">{summaryStats.inProgress} งาน</div>
+                      <div className="text-[11px] text-slate-400">กำลังดำเนินการ</div>
+                    </div>
+                    <div className="p-1.5">
+                      <div className="text-base sm:text-lg font-bold text-rose-400">{summaryStats.delayed} งาน</div>
+                      <div className="text-[11px] text-slate-400">ล่าช้ากว่ากำหนด</div>
+                    </div>
+                  </div>
+
+                  {/* Narrative Sections */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                    {/* 1. สรุปภาพรวม */}
+                    <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/60">
+                      <div className="font-semibold text-slate-300 text-xs flex items-center gap-1.5 mb-1.5">
+                        <Building2 className="w-3.5 h-3.5 text-sky-400" />
+                        <span>สรุปผลการดำเนินงานภาพรวม</span>
+                      </div>
+                      <p className="text-slate-200 text-xs leading-relaxed whitespace-pre-line">
+                        {activeSavedSummary?.summaryText || (
+                          <span className="text-slate-500 italic">
+                            ยังไม่มีบทสรุปผลการดำเนินงาน คลิกปุ่ม "ซิงค์สรุปผลงานจากภารกิจนี้" เพื่อประมวลผลอัตโนมัติ
+                          </span>
+                        )}
+                      </p>
+                    </div>
+
+                    {/* 2. ผลงานสำคัญ / ความสำเร็จเด่น */}
+                    <div className="bg-emerald-950/20 p-3 rounded-lg border border-emerald-500/30">
+                      <div className="font-semibold text-emerald-400 text-xs flex items-center gap-1.5 mb-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>ผลงานสำคัญ / ความสำเร็จเด่น</span>
+                      </div>
+                      <p className="text-slate-200 text-xs leading-relaxed whitespace-pre-line">
+                        {activeSavedSummary?.achievements || (
+                          <span className="text-slate-500 italic">
+                            ยังไม่ได้ระบุผลงานเด่น (ระบบสามารถรวบรวมจากผลสัมฤทธิ์ของภารกิจที่เสร็จสิ้นอัตโนมัติ)
+                          </span>
+                        )}
+                      </p>
+                    </div>
+
+                    {/* 3. ปัญหา อุปสรรค */}
+                    <div className="bg-[#451b16]/20 p-3 rounded-lg border border-rose-500/20">
+                      <div className="font-semibold text-rose-400 text-xs flex items-center gap-1.5 mb-1.5">
+                        <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                        <span>ปัญหา อุปสรรค และแนวทางแก้ไข</span>
+                      </div>
+                      <p className="text-slate-200 text-xs leading-relaxed whitespace-pre-line">
+                        {activeSavedSummary?.obstacles || (
+                          <span className="text-slate-500 italic">
+                            ไม่มีปัญหาหรืออุปสรรคที่ต้องรายงาน
+                          </span>
+                        )}
+                      </p>
+                    </div>
+
+                    {/* 4. แผนงานเดือนถัดไป */}
+                    <div className="bg-sky-950/20 p-3 rounded-lg border border-sky-500/30">
+                      <div className="font-semibold text-sky-400 text-xs flex items-center gap-1.5 mb-1.5">
+                        <TrendingUp className="w-3.5 h-3.5 text-sky-400" />
+                        <span>แผนงานสำคัญเดือนถัดไป (Next Steps)</span>
+                      </div>
+                      <p className="text-slate-200 text-xs leading-relaxed whitespace-pre-line">
+                        {activeSavedSummary?.nextPlan || (
+                          <span className="text-slate-500 italic">
+                            ยังไม่ได้ระบุแผนงานเดือนถัดไป
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  {activeSavedSummary?.reportedDate && (
+                    <div className="text-[11px] text-slate-400 text-right pt-1">
+                      รายงานโดย: {activeSavedSummary.reporter || '-'} • วันที่บันทึก: {activeSavedSummary.reportedDate}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
         {/* Active Filter Notice Banner if any filter is applied */}
         {(selectedMonth !== 'all' || selectedDivision !== 'all' || selectedUnit !== 'all' || selectedStatus !== 'all' || searchQuery.trim() !== '') && (
@@ -940,6 +1245,137 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             onSaveImportedTasks(updatedTasks, updatedCount, newCount);
           }}
         />
+      )}
+
+      {/* Edit Monthly Summary Modal */}
+      {isEditingSummary && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#1e293b] rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-700 relative animate-in fade-in duration-150 text-slate-200 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-700/80">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                  <Edit3 className="w-4 h-4" />
+                </span>
+                <div>
+                  <h3 className="font-bold text-slate-100 text-base">
+                    แก้ไขสรุปผลการดำเนินงาน: {activeSummaryDivInfo.name}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {activeSummaryMonthInfo.label} (ไตรมาส {activeSummaryMonthInfo.quarter})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsEditingSummary(false)}
+                className="text-slate-400 hover:text-slate-100 p-1.5 rounded-lg hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1 text-xs sm:text-sm">
+              <div className="p-3 bg-sky-950/30 border border-sky-500/30 rounded-xl flex items-center justify-between gap-3 text-xs text-sky-200">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-sky-400 shrink-0" />
+                  <span>
+                    มีภารกิจในทะเบียนติดตามงาน <strong>{summaryMatchingTasks.length} รายการ</strong> (เสร็จสิ้น {summaryStats.completed} งาน, ล่าช้า {summaryStats.delayed} งาน)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAutoFillSummaryModal}
+                  className="px-2.5 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-semibold shrink-0 transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>ดึงข้อมูลอัตโนมัติจากทะเบียนงาน</span>
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  1. สรุปผลการดำเนินงานภาพรวม
+                </label>
+                <textarea
+                  rows={3}
+                  value={summaryEditForm.summaryText}
+                  onChange={(e) => setSummaryEditForm(prev => ({ ...prev, summaryText: e.target.value }))}
+                  placeholder="ระบุภาพรวมการดำเนินงานของงาน..."
+                  className="w-full p-2.5 bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-sky-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-emerald-400 mb-1">
+                  2. ผลงานสำคัญ / ความสำเร็จเด่น (Key Achievements)
+                </label>
+                <textarea
+                  rows={3}
+                  value={summaryEditForm.achievements}
+                  onChange={(e) => setSummaryEditForm(prev => ({ ...prev, achievements: e.target.value }))}
+                  placeholder="ระบุความสำเร็จ ผลสัมฤทธิ์ หรือโครงการที่เสร็จสิ้น..."
+                  className="w-full p-2.5 bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-sky-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-rose-400 mb-1">
+                  3. ปัญหา อุปสรรค และแนวทางแก้ไข
+                </label>
+                <textarea
+                  rows={3}
+                  value={summaryEditForm.obstacles}
+                  onChange={(e) => setSummaryEditForm(prev => ({ ...prev, obstacles: e.target.value }))}
+                  placeholder="ระบุอุปสรรค ข้อติดขัด หรือสิ่งที่ต้องขอรับการสนับสนุน..."
+                  className="w-full p-2.5 bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-sky-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-sky-400 mb-1">
+                  4. แผนงานสำคัญเดือนถัดไป (Next Steps)
+                </label>
+                <textarea
+                  rows={2}
+                  value={summaryEditForm.nextPlan}
+                  onChange={(e) => setSummaryEditForm(prev => ({ ...prev, nextPlan: e.target.value }))}
+                  placeholder="ระบุภารกิจที่เตรียมดำเนินการในงวดถัดไป..."
+                  className="w-full p-2.5 bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-sky-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  ผู้รายงาน / ตำแหน่ง
+                </label>
+                <input
+                  type="text"
+                  value={summaryEditForm.reporter}
+                  onChange={(e) => setSummaryEditForm(prev => ({ ...prev, reporter: e.target.value }))}
+                  placeholder="เช่น หัวหน้างานธุรการ"
+                  className="w-full p-2 bg-slate-800/90 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-sky-500"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-700/80 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsEditingSummary(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition-colors cursor-pointer text-xs sm:text-sm"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveSummaryEdit}
+                className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-lg font-semibold transition-colors cursor-pointer text-xs sm:text-sm flex items-center gap-1.5"
+              >
+                <Save className="w-4 h-4" />
+                <span>บันทึกสรุปผลงาน</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

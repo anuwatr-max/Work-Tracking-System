@@ -171,45 +171,21 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
     return summaries.find(s => s.monthId === activeSummaryMonthId && s.divisionId === activeSummaryDivId);
   }, [summaries, activeSummaryMonthId, activeSummaryDivId]);
 
-  // Live auto-compiled summary strictly derived from tasks in the register
-  const liveCompiledSummary = useMemo(() => {
-    return compileSummaryFromTasks(activeSummaryMonthId, activeSummaryDivId, tasks, activeSavedSummary);
-  }, [activeSummaryMonthId, activeSummaryDivId, tasks, activeSavedSummary]);
-
-  // Effective summary: if user made custom edits, use activeSavedSummary; otherwise use live compiled summary
-  const effectiveSummary = useMemo(() => {
-    if (activeSavedSummary?.isCustomEdited) {
-      return activeSavedSummary;
-    }
-    return {
-      id: activeSavedSummary?.id || `sum-${activeSummaryMonthId}-${activeSummaryDivId}`,
-      monthId: activeSummaryMonthId,
-      divisionId: activeSummaryDivId,
-      summaryText: liveCompiledSummary.summaryText,
-      achievements: liveCompiledSummary.achievements,
-      obstacles: liveCompiledSummary.obstacles,
-      nextPlan: liveCompiledSummary.nextPlan,
-      reporter: activeSavedSummary?.reporter || `หัวหน้า${activeSummaryDivInfo.name}`,
-      reportedDate: activeSavedSummary?.reportedDate || new Date().toISOString().split('T')[0],
-      isCustomEdited: false
-    };
-  }, [activeSavedSummary, liveCompiledSummary, activeSummaryMonthId, activeSummaryDivId, activeSummaryDivInfo.name]);
-
   // 1-Click Sync Summary from Tasks in Register
   const handleSyncSummaryForActiveDivision = () => {
     if (!onSaveSummary) return;
-    const synced = buildSyncedSummary(activeSummaryMonthId, activeSummaryDivId, tasks, activeSavedSummary, true);
+    const synced = buildSyncedSummary(activeSummaryMonthId, activeSummaryDivId, tasks, activeSavedSummary);
     onSaveSummary(synced);
     onShowToast?.(`ซิงค์สรุปผลงาน "${activeSummaryDivInfo.name}" ประจำเดือน "${activeSummaryMonthInfo.label}" จากทะเบียนงานเรียบร้อยแล้ว (${summaryMatchingTasks.length} รายการ)`);
   };
 
   const handleStartEditSummary = () => {
     setSummaryEditForm({
-      summaryText: effectiveSummary.summaryText || '',
-      achievements: effectiveSummary.achievements || '',
-      obstacles: effectiveSummary.obstacles || '',
-      nextPlan: effectiveSummary.nextPlan || '',
-      reporter: effectiveSummary.reporter || `หัวหน้า${activeSummaryDivInfo.name}`
+      summaryText: activeSavedSummary?.summaryText || '',
+      achievements: activeSavedSummary?.achievements || '',
+      obstacles: activeSavedSummary?.obstacles || '',
+      nextPlan: activeSavedSummary?.nextPlan || '',
+      reporter: activeSavedSummary?.reporter || `หัวหน้า${activeSummaryDivInfo.name}`
     });
     setIsEditingSummary(true);
   };
@@ -237,8 +213,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
       obstacles: summaryEditForm.obstacles,
       nextPlan: summaryEditForm.nextPlan,
       reporter: summaryEditForm.reporter,
-      reportedDate: new Date().toISOString().split('T')[0],
-      isCustomEdited: true
+      reportedDate: new Date().toISOString().split('T')[0]
     };
     onSaveSummary(updated);
     setIsEditingSummary(false);
@@ -707,19 +682,12 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                     {/* 1. สรุปภาพรวม */}
                     <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/60">
-                      <div className="font-semibold text-slate-300 text-xs flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <Building2 className="w-3.5 h-3.5 text-sky-400" />
-                          <span>สรุปผลการดำเนินงานภาพรวม</span>
-                        </div>
-                        {effectiveSummary.isCustomEdited && (
-                          <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded border border-amber-500/30">
-                            แก้ไขด้วยตนเอง
-                          </span>
-                        )}
+                      <div className="font-semibold text-slate-300 text-xs flex items-center gap-1.5 mb-1.5">
+                        <Building2 className="w-3.5 h-3.5 text-sky-400" />
+                        <span>สรุปผลการดำเนินงานภาพรวม</span>
                       </div>
                       <p className="text-slate-200 text-xs leading-relaxed whitespace-pre-line">
-                        {effectiveSummary.summaryText || (
+                        {activeSavedSummary?.summaryText || (
                           <span className="text-slate-500 italic">
                             ยังไม่มีบทสรุปผลการดำเนินงาน คลิกปุ่ม "ซิงค์สรุปผลงานจากภารกิจนี้" เพื่อประมวลผลอัตโนมัติ
                           </span>
@@ -734,7 +702,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                         <span>ผลงานสำคัญ / ความสำเร็จเด่น</span>
                       </div>
                       <p className="text-slate-200 text-xs leading-relaxed whitespace-pre-line">
-                        {effectiveSummary.achievements || (
+                        {activeSavedSummary?.achievements || (
                           <span className="text-slate-500 italic">
                             ยังไม่ได้ระบุผลงานเด่น (ระบบสามารถรวบรวมจากผลสัมฤทธิ์ของภารกิจที่เสร็จสิ้นอัตโนมัติ)
                           </span>
@@ -749,7 +717,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                         <span>ปัญหา อุปสรรค และแนวทางแก้ไข</span>
                       </div>
                       <p className="text-slate-200 text-xs leading-relaxed whitespace-pre-line">
-                        {effectiveSummary.obstacles || (
+                        {activeSavedSummary?.obstacles || (
                           <span className="text-slate-500 italic">
                             ไม่มีปัญหาหรืออุปสรรคที่ต้องรายงาน
                           </span>
@@ -764,7 +732,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                         <span>แผนงานสำคัญเดือนถัดไป (Next Steps)</span>
                       </div>
                       <p className="text-slate-200 text-xs leading-relaxed whitespace-pre-line">
-                        {effectiveSummary.nextPlan || (
+                        {activeSavedSummary?.nextPlan || (
                           <span className="text-slate-500 italic">
                             ยังไม่ได้ระบุแผนงานเดือนถัดไป
                           </span>
@@ -773,9 +741,9 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                     </div>
                   </div>
 
-                  {effectiveSummary.reportedDate && (
+                  {activeSavedSummary?.reportedDate && (
                     <div className="text-[11px] text-slate-400 text-right pt-1">
-                      รายงานโดย: {effectiveSummary.reporter || '-'} • วันที่บันทึก: {effectiveSummary.reportedDate}
+                      รายงานโดย: {activeSavedSummary.reporter || '-'} • วันที่บันทึก: {activeSavedSummary.reportedDate}
                     </div>
                   )}
                 </div>

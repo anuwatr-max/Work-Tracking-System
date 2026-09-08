@@ -65,43 +65,40 @@ export function compileSummaryFromTasks(
 
   const achievements = achievementItems.length > 0
     ? achievementItems.join('\n')
-    : (total === 0
-        ? 'ไม่มีภารกิจในทะเบียนงานสำหรับเดือนนี้'
-        : `ยังไม่มีภารกิจที่เสร็จสมบูรณ์ในเดือนนี้ (จากภารกิจในทะเบียน ${total} รายการ)`);
+    : existingSummary?.achievements || 'อยู่ระหว่างดำเนินงานตามแผนงานประจำเดือน ยังไม่มีภารกิจที่เสร็จสิ้นสมบูรณ์';
 
   // 3. Issues & Obstacles (ปัญหาและอุปสรรค)
   const obstacleItems: string[] = [];
   delayedTasks.forEach((t, idx) => {
     const issueText = t.issues && t.issues.trim() ? t.issues : 'งานมีความล่าช้ากว่ากำหนดเวลาที่วางไว้ อยู่ระหว่างเร่งรัดติดตาม';
-    obstacleItems.push(`${idx + 1}. ${t.title} (${t.assignee}) — สถานะล่าช้า: ${issueText}`);
+    obstacleItems.push(`${idx + 1}. ${t.title} (สถานะ: ล่าช้า) — ปัญหา: ${issueText}`);
   });
 
   // Also check tasks with issues explicitly reported
   divTasks
     .filter((t) => t.status !== 'delayed' && t.issues && t.issues.trim())
     .forEach((t, idx) => {
-      obstacleItems.push(`${delayedTasks.length + idx + 1}. ${t.title} (${t.assignee}) — ข้อจำกัด/ปัญหา: ${t.issues}`);
+      obstacleItems.push(`${delayedTasks.length + idx + 1}. ${t.title} — ข้อจำกัด: ${t.issues}`);
     });
 
   const obstacles = obstacleItems.length > 0
     ? obstacleItems.join('\n')
-    : 'ไม่มีปัญหาหรืออุปสรรคที่ระบุในทะเบียนงานสำหรับเดือนนี้ (การดำเนินงานเป็นไปตามแผน)';
+    : (existingSummary?.obstacles && existingSummary.obstacles !== 'ไม่มีปัญหาหรืออุปสรรคที่ต้องรายงาน'
+        ? existingSummary.obstacles
+        : 'ไม่มีปัญหาหรืออุปสรรคสำคัญที่ส่งผลกระทบต่อเป้าหมาย การดำเนินงานเป็นไปตามแผน');
 
   // 4. Next Steps (แผนงานในเดือนถัดไป)
   const nextPlanItems: string[] = [];
   const ongoing = [...inProgressTasks, ...notStartedTasks, ...pendingTasks];
   if (ongoing.length > 0) {
-    ongoing.slice(0, 5).forEach((t, idx) => {
+    ongoing.slice(0, 4).forEach((t, idx) => {
       nextPlanItems.push(`${idx + 1}. เร่งรัดภารกิจ "${t.title}" ของ${t.assignee} (ความคืบหน้าปัจจุบัน ${t.progress}%) ให้เสร็จสิ้นตามกำหนด`);
     });
   }
 
   if (nextPlanItems.length === 0) {
-    if (total === 0) {
-      nextPlanItems.push('เตรียมการวางแผนงานและโครงการสำหรับเดือนถัดไป');
-    } else {
-      nextPlanItems.push('ภารกิจประจำเดือนดำเนินการครบถ้วนแล้ว เตรียมติดตามงานในงวดถัดไป');
-    }
+    nextPlanItems.push('1. เตรียมการวางแผนงานและโครงการสำหรับเดือนถัดไป');
+    nextPlanItems.push('2. ติดตามการประเมินผลการปฏิบัติราชการประจำไตรมาส');
   }
 
   const nextPlan = nextPlanItems.join('\n');
@@ -121,14 +118,8 @@ export function buildSyncedSummary(
   monthId: string,
   divisionId: DivisionId,
   tasks: WorkTask[],
-  existingSummary?: MonthlyDivisionSummary,
-  forceRegenerate: boolean = false
+  existingSummary?: MonthlyDivisionSummary
 ): MonthlyDivisionSummary {
-  // If user explicitly wrote custom edited notes and didn't force regenerate, preserve their notes
-  if (existingSummary?.isCustomEdited && !forceRegenerate) {
-    return existingSummary;
-  }
-
   const compiled = compileSummaryFromTasks(monthId, divisionId, tasks, existingSummary);
   const divInfo = DIVISIONS_DATA.find((d) => d.id === divisionId);
 
@@ -142,29 +133,5 @@ export function buildSyncedSummary(
     nextPlan: compiled.nextPlan,
     reporter: existingSummary?.reporter || `หัวหน้า${divInfo?.name || 'งาน'}`,
     reportedDate: new Date().toISOString().split('T')[0],
-    isCustomEdited: false,
   };
 }
-
-/**
- * Synchronizes all monthly division summaries across all fiscal months and divisions
- * using the latest tasks dataset.
- */
-export function syncAllSummariesForTasks(
-  tasks: WorkTask[],
-  currentSummaries: MonthlyDivisionSummary[] = [],
-  forceRegenerate: boolean = false
-): MonthlyDivisionSummary[] {
-  const result: MonthlyDivisionSummary[] = [];
-  FISCAL_MONTHS.forEach((m) => {
-    DIVISIONS_DATA.forEach((div) => {
-      const existing = currentSummaries.find(
-        (s) => s.monthId === m.id && s.divisionId === div.id
-      );
-      const synced = buildSyncedSummary(m.id, div.id, tasks, existing, forceRegenerate);
-      result.push(synced);
-    });
-  });
-  return result;
-}
-
